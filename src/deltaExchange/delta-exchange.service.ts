@@ -1,19 +1,24 @@
 // delta-exchange.service.ts
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import { AxiosRequestConfig } from 'axios';
+
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import type { Cache } from 'cache-manager';
 
 @Injectable()
 export class DeltaExchangeService {
   private readonly baseUrl: string;
   private readonly apiKey: string;
   private readonly apiSecret: string;
+  private logger = new Logger(DeltaExchangeService.name);
 
   constructor(
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
+    @Inject(CACHE_MANAGER) private cache: Cache,
   ) {
     this.baseUrl =
       this.configService.get<string>('DELTA_BASE_URL') ||
@@ -69,13 +74,13 @@ export class DeltaExchangeService {
         ? '?' + new URLSearchParams(params).toString()
         : '';
 
-      console.log(
+      this.logger.log(
         'Timestamp for GET request before creating auth headers:',
         Math.floor(Date.now() / 1000).toString(),
       );
       // Generate headers immediately before making the request
       const headers = this.createAuthHeaders('GET', path, queryString);
-      console.log(
+      this.logger.log(
         'Timestamp for GET request after creating auth headers:',
         Math.floor(Date.now() / 1000).toString(),
       );
@@ -85,7 +90,7 @@ export class DeltaExchangeService {
         timeout: 5000, // Reduced timeout to 5 seconds
       };
 
-      console.log(
+      this.logger.log(
         'Timestamp for GET request before calling API:',
         Math.floor(Date.now() / 1000).toString(),
       );
@@ -94,7 +99,7 @@ export class DeltaExchangeService {
         `${this.baseUrl}${path}`,
         config,
       );
-      console.log(
+      this.logger.log(
         'Timestamp for GET request after calling API:',
         Math.floor(Date.now() / 1000).toString(),
       );
@@ -105,12 +110,12 @@ export class DeltaExchangeService {
         error.response?.data?.error?.code === 'expired_signature' &&
         retryCount === 0
       ) {
-        console.log('Signature expired, retrying with new signature...');
+        this.logger.log('Signature expired, retrying with new signature...');
         // Wait a brief moment before retry
         await new Promise((resolve) => setTimeout(resolve, 100));
         return this.authenticatedGet(path, params, retryCount + 1);
       }
-      console.log(JSON.stringify(error.response?.data));
+      this.logger.log(JSON.stringify(error.response?.data));
       const errorMessage = error.response?.data?.error?.code || error.message;
       throw new Error(`Delta Exchange API Error: ${errorMessage}`);
     }
@@ -144,13 +149,13 @@ export class DeltaExchangeService {
         error.response?.data?.error?.code === 'expired_signature' &&
         retryCount === 0
       ) {
-        console.log('Signature expired, retrying with new signature...');
+        this.logger.log('Signature expired, retrying with new signature...');
         // Wait a brief moment before retry
         await new Promise((resolve) => setTimeout(resolve, 100));
         return this.authenticatedPost(path, data, retryCount + 1);
       }
 
-      console.log(JSON.stringify(error.response?.data));
+      this.logger.log(JSON.stringify(error.response?.data));
       const errorMessage = error.response?.data?.error?.code || error.message;
       throw new Error(`Delta Exchange API Error: ${errorMessage}`);
     }
@@ -198,7 +203,7 @@ export class DeltaExchangeService {
     try {
       return await this.authenticatedPost('/v2/orders', orderData);
     } catch (error) {
-      console.log(error.response?.data?.error?.code || error.message);
+      this.logger.log(error.response?.data?.error?.code || error.message);
       return null;
     }
   }
@@ -236,7 +241,9 @@ export class DeltaExchangeService {
   // Get product details by symbol (e.g., BTCUSD, ETHUSD)
   async getProductBySymbol(symbol: string): Promise<any> {
     try {
+      this.logger.log(`Getting product data for ${symbol}...`);
       const response = await this.authenticatedGet(`/v2/products/${symbol}`);
+      this.logger.log(`Product data for ${symbol} is fetched`);
       return response.result;
     } catch (error) {
       throw new Error(
@@ -246,12 +253,14 @@ export class DeltaExchangeService {
   }
 
   // Get ticker data for current prices (mark_price, spot_price, etc.)
-  async getTickerBySymbol(symbol: string): Promise<any> {
+  async getTickerById(productId: string): Promise<any> {
     try {
-      const response = await this.authenticatedGet(`/v2/tickers/${symbol}`);
+      const response = await this.authenticatedGet(`/v2/tickers/${productId}`);
       return response;
     } catch (error) {
-      throw new Error(`Failed to get ticker for ${symbol}: ${error.message}`);
+      throw new Error(
+        `Failed to get ticker for ${productId}: ${error.message}`,
+      );
     }
   }
 
@@ -283,5 +292,24 @@ export class DeltaExchangeService {
         `Failed to change order leverage: ${error.response?.data?.error || error.message}`,
       );
     }
+  }
+
+  async setCrypto(symbol: string) {
+    this.logger.log(`Setting trading crypto to ${symbol}`);
+    await this.cache.set('tradingCrypto', symbol);
+    this.logger.log(`Trading crypto set to ${symbol}`);
+    return { success: true, symbol: await this.cache.get('tradingCrypto') };
+  }
+
+  async getCrypto() {
+    const symbol = await this.cache.get<string>('tradingCrypto');
+    this.logger.log(`Retrieved trading crypto: ${symbol}`);
+    return { symbol: symbol || null };
+  }
+
+  async clearCrypto() {
+    await this.cache.del('tradingCrypto');
+    this.logger.log(`Cleared trading crypto from cache`);
+    return { success: true };
   }
 }

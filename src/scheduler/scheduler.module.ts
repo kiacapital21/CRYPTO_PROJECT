@@ -8,6 +8,11 @@ import { DeltaExchangeService } from 'src/deltaExchange/delta-exchange.service';
 import { DeltaExchangeModule } from 'src/deltaExchange/delta-exchange.module';
 import { HttpModule } from '@nestjs/axios';
 import { WsModule } from 'src/websocket/ws.module';
+import { DelayService } from 'src/services/delay.service';
+import { LeverageService } from 'src/services/leverage.service';
+import { TickerService } from 'src/services/ticker.service';
+import { BalanceService } from 'src/services/balance.service';
+import { StopLossService } from 'src/services/stop-loss.service';
 
 @Module({
   providers: [
@@ -16,6 +21,11 @@ import { WsModule } from 'src/websocket/ws.module';
     FundingService,
     OrderService,
     DeltaExchangeService,
+    DelayService,
+    LeverageService,
+    TickerService,
+    BalanceService,
+    StopLossService,
   ],
   exports: [
     SchedulerService,
