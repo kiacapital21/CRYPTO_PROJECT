@@ -7,41 +7,41 @@ export class SchedulerService {
   private logger = new Logger(SchedulerService.name);
   constructor(private readonly tradingEngine: TradingEngineService) {}
 
-  @Cron('50 29 09 * * *', { timeZone: 'Asia/Kolkata' })
-  async runDailyStrategyAt9() {
-    this.logger.log(
-      'Running daily trading strategy...Starting trading engine...',
-    );
-    await this.tradingEngine.runMorningStrategy();
-    this.logger.log('Daily trading strategy completed.');
-  }
+  // @Cron('50 29 09 * * *', { timeZone: 'Asia/Kolkata' })
+  // async runDailyStrategyAt9() {
+  //   this.logger.log(
+  //     'Running daily trading strategy...Starting trading engine...',
+  //   );
+  //   await this.tradingEngine.runMorningStrategy();
+  //   this.logger.log('Daily trading strategy completed.');
+  // }
 
-  @Cron('50 29 13 * * *', { timeZone: 'Asia/Kolkata' })
-  async runDailyStrategyAt13() {
-    this.logger.log(
-      'Running daily trading strategy...Starting trading engine...',
-    );
-    await this.tradingEngine.runMorningStrategy();
-    this.logger.log('Daily trading strategy completed.');
-  }
+  // @Cron('50 29 13 * * *', { timeZone: 'Asia/Kolkata' })
+  // async runDailyStrategyAt13() {
+  //   this.logger.log(
+  //     'Running daily trading strategy...Starting trading engine...',
+  //   );
+  //   await this.tradingEngine.runMorningStrategy();
+  //   this.logger.log('Daily trading strategy completed.');
+  // }
 
-  @Cron('50 29 17 * * *', { timeZone: 'Asia/Kolkata' })
-  async runDailyStrategyAt17() {
-    this.logger.log(
-      'Running daily trading strategy...Starting trading engine...',
-    );
-    await this.tradingEngine.runMorningStrategy();
-    this.logger.log('Daily trading strategy completed.');
-  }
+  // @Cron('50 29 17 * * *', { timeZone: 'Asia/Kolkata' })
+  // async runDailyStrategyAt17() {
+  //   this.logger.log(
+  //     'Running daily trading strategy...Starting trading engine...',
+  //   );
+  //   await this.tradingEngine.runMorningStrategy();
+  //   this.logger.log('Daily trading strategy completed.');
+  // }
 
-  @Cron('50 29 21 * * *', { timeZone: 'Asia/Kolkata' })
-  async runDailyStrategyAt21() {
-    this.logger.log(
-      'Running daily trading strategy...Starting trading engine...',
-    );
-    await this.tradingEngine.runMorningStrategy();
-    this.logger.log('Daily trading strategy completed.');
-  }
+  // @Cron('50 29 21 * * *', { timeZone: 'Asia/Kolkata' })
+  // async runDailyStrategyAt21() {
+  //   this.logger.log(
+  //     'Running daily trading strategy...Starting trading engine...',
+  //   );
+  //   await this.tradingEngine.runMorningStrategy();
+  //   this.logger.log('Daily trading strategy completed.');
+  // }
 
   @Cron('50 51 19 * * *', { timeZone: 'Asia/Kolkata' })
   async runDailyStrategy() {

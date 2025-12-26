@@ -1,11 +1,17 @@
 import { ConsoleLogger } from '@nestjs/common';
 
 export class CustomLogger extends ConsoleLogger {
+  private readonly IST_OFFSET_MS = (5 * 60 + 30) * 60000; // +5:30 in ms
+
   private ts(): string {
-    const d = new Date();
-    const date = d.toLocaleDateString();
-    const time = d.toLocaleTimeString('en-GB', { hour12: false });
-    const ms = d.getMilliseconds().toString().padStart(3, '0');
+    const now = new Date();
+    const utcMs = now.getTime() + now.getTimezoneOffset() * 60000;
+    const istTime = new Date(utcMs + this.IST_OFFSET_MS);
+
+    const date = istTime.toLocaleDateString('en-IN'); // Indian date format
+    const time = istTime.toLocaleTimeString('en-IN', { hour12: false });
+    const ms = istTime.getMilliseconds().toString().padStart(3, '0');
+
     return `${date} ${time}.${ms}`;
   }
 
