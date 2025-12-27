@@ -69,7 +69,7 @@ export class TradingEngineService {
     void this.eventEmitter.emitAsync('ws.stop').catch((err) => {
       this.logger.warn('ws.stop emit error', err);
     });
-    let symbol = process.env.SYMBOL || 'ETHUSD';
+    let symbol = process.env.SYMBOL || '';
     const cacheCrypto = await this.cache.get<string>('tradingCrypto');
     this.logger.log(`Cached trading crypto: ${cacheCrypto}`);
     if (cacheCrypto) {

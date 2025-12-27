@@ -1,65 +1,118 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { SchedulerRegistry } from '@nestjs/schedule';
+import { ConfigService } from '@nestjs/config';
 import { TradingEngineService } from '../services/trading-engine.service';
+import { CronJob } from 'cron';
+
+interface CronConfig {
+  name: string;
+  expression: string;
+  method: () => Promise<void>;
+}
 
 @Injectable()
-export class SchedulerService {
+export class SchedulerService implements OnModuleInit {
   private logger = new Logger(SchedulerService.name);
-  constructor(private readonly tradingEngine: TradingEngineService) {}
+  private readonly timeZone = 'Asia/Kolkata';
 
-  // @Cron('50 29 09 * * *', { timeZone: 'Asia/Kolkata' })
-  // async runDailyStrategyAt9() {
-  //   this.logger.log(
-  //     'Running daily trading strategy...Starting trading engine...',
-  //   );
-  //   await this.tradingEngine.runMorningStrategy();
-  //   this.logger.log('Daily trading strategy completed.');
-  // }
+  constructor(
+    private readonly tradingEngine: TradingEngineService,
+    private readonly schedulerRegistry: SchedulerRegistry,
+    private readonly configService: ConfigService,
+  ) {}
 
-  // @Cron('50 29 13 * * *', { timeZone: 'Asia/Kolkata' })
-  // async runDailyStrategyAt13() {
-  //   this.logger.log(
-  //     'Running daily trading strategy...Starting trading engine...',
-  //   );
-  //   await this.tradingEngine.runMorningStrategy();
-  //   this.logger.log('Daily trading strategy completed.');
-  // }
-
-  // @Cron('50 29 17 * * *', { timeZone: 'Asia/Kolkata' })
-  // async runDailyStrategyAt17() {
-  //   this.logger.log(
-  //     'Running daily trading strategy...Starting trading engine...',
-  //   );
-  //   await this.tradingEngine.runMorningStrategy();
-  //   this.logger.log('Daily trading strategy completed.');
-  // }
-
-  // @Cron('50 29 21 * * *', { timeZone: 'Asia/Kolkata' })
-  // async runDailyStrategyAt21() {
-  //   this.logger.log(
-  //     'Running daily trading strategy...Starting trading engine...',
-  //   );
-  //   await this.tradingEngine.runMorningStrategy();
-  //   this.logger.log('Daily trading strategy completed.');
-  // }
-
-  @Cron('50 25 10 * * *', { timeZone: 'Asia/Kolkata' })
-  async runDailyStrategy() {
-    this.logger.log(
-      'Running daily trading strategy...Starting trading engine...',
-    );
-    await this.tradingEngine.runLocalStrategy();
-    this.logger.log('Daily trading strategy completed.');
+  private getCronConfigs(): CronConfig[] {
+    console.log(this.configService.get<string>('CRON_STRATEGY_9'));
+    console.log(this.configService.get<string>('CRON_STRATEGY_13'));
+    console.log(this.configService.get<string>('CRON_STRATEGY_17'));
+    console.log(this.configService.get<string>('CRON_STRATEGY_21'));
+    console.log(this.configService.get<string>('CRON_STRATEGY_LOCAL'));
+    return [
+      {
+        name: 'strategy9',
+        expression:
+          this.configService.get<string>('CRON_STRATEGY_9') || '50 29 09 * * *',
+        method: () => this.runMorningStrategy(),
+      },
+      {
+        name: 'strategy13',
+        expression:
+          this.configService.get<string>('CRON_STRATEGY_13') ||
+          '50 29 13 * * *',
+        method: () => this.runMorningStrategy(),
+      },
+      {
+        name: 'strategy17',
+        expression:
+          this.configService.get<string>('CRON_STRATEGY_17') ||
+          '50 29 17 * * *',
+        method: () => this.runMorningStrategy(),
+      },
+      {
+        name: 'strategy21',
+        expression:
+          this.configService.get<string>('CRON_STRATEGY_21') ||
+          '50 29 21 * * *',
+        method: () => this.runMorningStrategy(),
+      },
+      {
+        name: 'strategyLocal',
+        expression:
+          this.configService.get<string>('CRON_STRATEGY_LOCAL') ||
+          '50 25 10 * * *',
+        method: () => this.runDailyStrategy(),
+      },
+    ];
   }
 
-  // @Cron('00 22 18 * * *', { timeZone: 'Asia/Kolkata' })
-  // async runStopLossAt21() {
-  //   this.logger.log(
-  //     'Running daily stop loss placement...Starting stop loss placement in trading engine...',
-  //   );
-  //   await this.tradingEngine.placeStopLoss();
-  //   this.logger.log('Daily stop loss placement completed.');
-  //   this.logger.log('Stopping the scheduler service...');
-  //   process.exit(0);
-  // }
+  private getCronJobs(config: CronConfig): CronJob {
+    return new CronJob(
+      config.expression,
+      async () => {
+        this.logger.log(`[${config.name}] Starting trading strategy...`);
+        try {
+          await config.method();
+          this.logger.log(`[${config.name}] Strategy completed successfully.`);
+        } catch (error) {
+          this.logger.error(
+            `[${config.name}] Strategy failed: ${error.message}`,
+            error.stack,
+          );
+        }
+      },
+      null,
+      false,
+      this.timeZone,
+    );
+  }
+
+  onModuleInit() {
+    const cronConfigs: CronConfig[] = this.getCronConfigs();
+
+    cronConfigs.forEach((config) => {
+      try {
+        const job: CronJob = this.getCronJobs(config) as any;
+
+        (this.schedulerRegistry as any).addCronJob(config.name, job);
+        job.start();
+        this.logger.log(
+          `✓ Registered cron [${config.name}] -> ${config.expression} (${this.timeZone})`,
+        );
+      } catch (error) {
+        this.logger.error(
+          `✗ Failed to register cron [${config.name}]: ${error.message}`,
+        );
+      }
+    });
+
+    this.logger.log('All cron jobs initialized.');
+  }
+
+  private async runMorningStrategy(): Promise<void> {
+    await this.tradingEngine.runMorningStrategy();
+  }
+
+  private async runDailyStrategy(): Promise<void> {
+    await this.tradingEngine.runLocalStrategy();
+  }
 }
