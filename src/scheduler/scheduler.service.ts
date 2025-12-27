@@ -43,7 +43,7 @@ export class SchedulerService {
   //   this.logger.log('Daily trading strategy completed.');
   // }
 
-  @Cron('50 51 19 * * *', { timeZone: 'Asia/Kolkata' })
+  @Cron('50 25 10 * * *', { timeZone: 'Asia/Kolkata' })
   async runDailyStrategy() {
     this.logger.log(
       'Running daily trading strategy...Starting trading engine...',
