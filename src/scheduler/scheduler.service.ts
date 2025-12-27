@@ -4,10 +4,11 @@ import { ConfigService } from '@nestjs/config';
 import { TradingEngineService } from '../services/trading-engine.service';
 import { CronJob } from 'cron';
 
-interface CronConfig {
+interface DynamicCronConfig {
   name: string;
-  expression: string;
-  method: () => Promise<void>;
+  cron: string;
+  handler: 'morning' | 'local';
+  timezone?: string; // optional
 }
 
 @Injectable()
@@ -21,95 +22,72 @@ export class SchedulerService implements OnModuleInit {
     private readonly configService: ConfigService,
   ) {}
 
-  private getCronConfigs(): CronConfig[] {
-    console.log(this.configService.get<string>('CRON_STRATEGY_9'));
-    console.log(this.configService.get<string>('CRON_STRATEGY_13'));
-    console.log(this.configService.get<string>('CRON_STRATEGY_17'));
-    console.log(this.configService.get<string>('CRON_STRATEGY_21'));
-    console.log(this.configService.get<string>('CRON_STRATEGY_LOCAL'));
-    return [
-      {
-        name: 'strategy9',
-        expression:
-          this.configService.get<string>('CRON_STRATEGY_9') || '50 29 09 * * *',
-        method: () => this.runMorningStrategy(),
-      },
-      {
-        name: 'strategy13',
-        expression:
-          this.configService.get<string>('CRON_STRATEGY_13') ||
-          '50 29 13 * * *',
-        method: () => this.runMorningStrategy(),
-      },
-      {
-        name: 'strategy17',
-        expression:
-          this.configService.get<string>('CRON_STRATEGY_17') ||
-          '50 29 17 * * *',
-        method: () => this.runMorningStrategy(),
-      },
-      {
-        name: 'strategy21',
-        expression:
-          this.configService.get<string>('CRON_STRATEGY_21') ||
-          '50 29 21 * * *',
-        method: () => this.runMorningStrategy(),
-      },
-      {
-        name: 'strategyLocal',
-        expression:
-          this.configService.get<string>('CRON_STRATEGY_LOCAL') ||
-          '50 25 10 * * *',
-        method: () => this.runDailyStrategy(),
-      },
-    ];
-  }
+  private handlers: Record<string, () => Promise<void>> = {
+    morning: () => this.runMorningStrategy(),
+    local: () => this.runDailyStrategy(),
+  };
 
-  private getCronJobs(config: CronConfig): CronJob {
-    return new CronJob(
-      config.expression,
-      async () => {
-        this.logger.log(`[${config.name}] Starting trading strategy...`);
-        try {
-          await config.method();
-          this.logger.log(`[${config.name}] Strategy completed successfully.`);
-        } catch (error) {
-          this.logger.error(
-            `[${config.name}] Strategy failed: ${error.message}`,
-            error.stack,
-          );
-        }
-      },
-      null,
-      false,
-      this.timeZone,
-    );
+  private getDynamicCronConfigs(): DynamicCronConfig[] {
+    const raw = this.configService.get<string>('DYNAMIC_CRONS');
+
+    if (!raw) return [];
+
+    try {
+      return JSON.parse(raw);
+    } catch (e) {
+      this.logger.error('Invalid DYNAMIC_CRONS JSON');
+      return [];
+    }
   }
 
   onModuleInit() {
-    const cronConfigs: CronConfig[] = this.getCronConfigs();
+    const defaultTimezone =
+      this.configService.get<string>('CRON_TIMEZONE') || 'Asia/Kolkata';
+    const configs = this.getDynamicCronConfigs();
 
-    cronConfigs.forEach((config) => {
-      try {
-        const job: CronJob = this.getCronJobs(config) as any;
+    configs.forEach((config) => {
+      const handler = this.handlers[config.handler];
 
-        (this.schedulerRegistry as any).addCronJob(config.name, job);
-        job.start();
-        this.logger.log(
-          `✓ Registered cron [${config.name}] -> ${config.expression} (${this.timeZone})`,
-        );
-      } catch (error) {
-        this.logger.error(
-          `✗ Failed to register cron [${config.name}]: ${error.message}`,
-        );
+      if (!handler) {
+        this.logger.warn(`No handler for ${config.name}`);
+        return;
       }
-    });
 
-    this.logger.log('All cron jobs initialized.');
+      const job = new CronJob(
+        config.cron,
+        async () => {
+          this.logger.log(`[${config.name}] Started`);
+          try {
+            await handler();
+            this.logger.log(`[${config.name}] Completed`);
+          } catch (e) {
+            this.logger.error(`[${config.name}] Failed`, e.stack);
+          }
+        },
+        null,
+        false,
+        config.timezone || defaultTimezone, // ✅ timezone here
+      );
+
+      (this.schedulerRegistry as any).addCronJob(config.name, job);
+      job.start();
+
+      this.logger.log(
+        `✓ Cron registered: ${config.name} -> ${config.cron} (${config.timezone || defaultTimezone})`,
+      );
+    });
   }
 
+  private running = false;
+
   private async runMorningStrategy(): Promise<void> {
-    await this.tradingEngine.runMorningStrategy();
+    if (this.running) return;
+    this.running = true;
+    try {
+      await this.tradingEngine.runMorningStrategy();
+    } finally {
+      this.running = false;
+    }
   }
 
   private async runDailyStrategy(): Promise<void> {
