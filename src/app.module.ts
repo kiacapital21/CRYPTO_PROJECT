@@ -8,6 +8,7 @@ import { CacheModule } from '@nestjs/cache-manager';
 import { WsModule } from './websocket/ws.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { SchedulerModule } from './scheduler/scheduler.module';
+import { BinanceModule } from './binance/binance.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { SchedulerModule } from './scheduler/scheduler.module';
     ScheduleModule.forRoot(),
     SchedulerModule,
     EventEmitterModule.forRoot(),
+    BinanceModule,
   ],
   controllers: [AppController],
   providers: [AppService],
