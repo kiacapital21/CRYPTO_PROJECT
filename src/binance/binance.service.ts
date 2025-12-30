@@ -15,7 +15,7 @@ export class BinanceService {
   private readonly baseUrl: string;
   private readonly apiKey: string;
   private readonly apiSecret: string;
-  private readonly BALANCE_BUFFER = 0.98; // Extract constant
+  private readonly BALANCE_BUFFER = 0.95; // Extract constant
   private readonly STOP_LOSS_PERCENTAGE = 0.003; // 0.3% stop loss
   private logger = new Logger(BinanceService.name);
   private readonly STOP_LOSS_CACHE_KEY = 'binanceStopLossRequest';
@@ -270,11 +270,7 @@ export class BinanceService {
   ) {
     const effectiveBalance = availableBalance * this.BALANCE_BUFFER;
     const rawQty = (effectiveBalance * leverage) / markPrice;
-    // Round down to nearest step size
-    const precision = Math.floor(Math.log10(1 / stepSize));
-    const adjustedQty =
-      Math.floor(rawQty * Math.pow(10, precision)) / Math.pow(10, precision);
-    return adjustedQty;
+    return Math.floor(rawQty / stepSize) * stepSize; // Math.floor(rawQty / stepSize) * stepSize; // rawQty;
   }
 
   async getExchangeInfo() {
