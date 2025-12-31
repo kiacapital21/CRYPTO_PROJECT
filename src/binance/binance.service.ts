@@ -74,16 +74,10 @@ export class BinanceService {
       //   ? '?' + new URLSearchParams(params).toString()
       //   : '';
 
-      this.logger.log(
-        'Timestamp for GET request before creating auth headers:',
-        Math.floor(Date.now() / 1000).toString(),
-      );
+      this.logger.log('GET request before creating auth headers:');
       // Generate headers immediately before making the request
       const headers = isAuthenticated ? this.createAuthHeaders() : undefined;
-      this.logger.log(
-        'Timestamp for GET request after creating auth headers:',
-        Math.floor(Date.now() / 1000).toString(),
-      );
+      this.logger.log('GET request after creating auth headers:');
       const config: AxiosRequestConfig = {
         headers,
         params,
@@ -270,7 +264,7 @@ export class BinanceService {
   ) {
     const effectiveBalance = availableBalance * this.BALANCE_BUFFER;
     const rawQty = (effectiveBalance * leverage) / markPrice;
-    return Math.floor(rawQty / stepSize) * stepSize; // Math.floor(rawQty / stepSize) * stepSize; // rawQty;
+    return parseFloat((Math.floor(rawQty / stepSize) * stepSize).toFixed(1)); // Math.floor(rawQty / stepSize) * stepSize; // rawQty;
   }
 
   async getExchangeInfo() {
