@@ -36,7 +36,7 @@ export class DelayService {
 
     if (
       isStopLossDelay &&
-      (istNow.getSeconds() !== 59 || istNow.getSeconds() >= 0) &&
+      istNow.getSeconds() !== 59 &&
       istNow.getMilliseconds() >= millisecond
     ) {
       this.logger.debug(
