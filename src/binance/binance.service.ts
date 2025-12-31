@@ -232,7 +232,7 @@ export class BinanceService {
       symbol,
       'SELL',
       quantity,
-      stopLossRequest.stop_price as unknown as number,
+      // stopLossRequest.stop_price as unknown as number,
     );
 
     console.log('Stop Loss Order Response:', stopLossOrderResponse);
@@ -367,7 +367,7 @@ export class BinanceService {
     symbol: string,
     side: 'BUY' | 'SELL',
     quantity: number,
-    stopPrice: number,
+    // stopPrice: number,
   ) {
     try {
       const timestamp = Date.now();
@@ -474,12 +474,12 @@ export class BinanceService {
     console.log('Max Quantity:', quantity);
     const orderResponse = await this.placeMarketOrder(symbol, 'BUY', quantity); // Example market order
     console.log('Order Response:', orderResponse);
-    const stopLossRequest = await this.cacheStopLossRequest(
-      'buy',
-      orderResponse.avgPrice,
-      quantity,
-      symbol,
-    );
+    // this.cacheStopLossRequest(
+    //   'buy',
+    //   orderResponse.avgPrice,
+    //   quantity,
+    //   symbol,
+    // );
     await this.delayService.delayForStopLoss();
     this.logger.log('Placing closing loss order now...');
     const stopLossOrderResponse = await this.placeStopLoss(
@@ -487,7 +487,7 @@ export class BinanceService {
       symbol,
       'SELL',
       quantity,
-      stopLossRequest.stop_price as unknown as number,
+      // stopLossRequest.stop_price as unknown as number,
     );
 
     console.log('Stop Loss Order Response:', stopLossOrderResponse);

@@ -22,6 +22,7 @@ export class DelayService {
   private async waitUntilSameMinuteAtSecond(
     second: number,
     millisecond: number = 0,
+    isStopLossDelay: boolean = false,
   ): Promise<void> {
     const istNow = this.getIstNow();
     const targetTime = istNow.getTime();
@@ -32,6 +33,17 @@ export class DelayService {
       (istNow.getSeconds() * 1000 + istNow.getMilliseconds()) +
       second * 1000 +
       millisecond;
+
+    if (
+      isStopLossDelay &&
+      istNow.getSeconds() !== 59 &&
+      istNow.getMilliseconds() >= millisecond
+    ) {
+      this.logger.debug(
+        `Target time ${second}:${millisecond} already passed this minute`,
+      );
+      return;
+    }
 
     if (istNow.getTime() >= targetMs) {
       this.logger.debug(
@@ -51,10 +63,10 @@ export class DelayService {
   }
 
   public async delay(): Promise<void> {
-    await this.waitUntilSameMinuteAtSecond(59, 700);
+    await this.waitUntilSameMinuteAtSecond(59, 700, false);
   }
 
   public async delayForStopLoss(): Promise<void> {
-    await this.waitUntilSameMinuteAtSecond(60, 25);
+    await this.waitUntilSameMinuteAtSecond(60, 25, true);
   }
 }
