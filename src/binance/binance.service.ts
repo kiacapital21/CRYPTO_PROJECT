@@ -452,7 +452,7 @@ export class BinanceService {
     const [walletBalance, exchangeInfo, leverageInfo] = await Promise.all([
       this.getWalletBalance(),
       this.getExchangeInfo(),
-      this.changeLeverage(symbol, 10),
+      this.changeLeverage(symbol, 5),
     ]);
 
     const availableBalance = walletBalance.find(
