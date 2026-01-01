@@ -6,9 +6,10 @@ import { BinanceService } from './binance.service';
 import { BinanceController } from './binance.controller';
 import { DelayService } from 'src/services/delay.service';
 import { BinanceSchedulerService } from './binance.scheduler.service';
+import { WsModule } from 'src/websocket/ws.module';
 
 @Module({
-  imports: [HttpModule, ConfigModule],
+  imports: [HttpModule, ConfigModule, WsModule],
   providers: [BinanceService, DelayService, BinanceSchedulerService],
   exports: [BinanceService],
   controllers: [BinanceController],

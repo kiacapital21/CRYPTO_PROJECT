@@ -9,6 +9,7 @@ import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
 import { DelayService } from 'src/services/delay.service';
 import EventEmitter2 from 'eventemitter2';
+import { BinanceWsService } from 'src/websocket/binance-ws.service';
 
 @Injectable()
 export class BinanceService {
@@ -26,6 +27,7 @@ export class BinanceService {
     @Inject(CACHE_MANAGER) private cache: Cache,
     private readonly delayService: DelayService,
     private eventEmitter: EventEmitter2,
+    private readonly binanceWsService: BinanceWsService,
   ) {
     this.baseUrl =
       this.configService.get<string>('BINANCE_BASE_URL') ||
@@ -193,56 +195,56 @@ export class BinanceService {
     return this.authenticatedGet('/v2/orders', params);
   }
 
-  async getMarkPrice(symbol: string = 'GASUSDT') {
+  async getMarkPrice(symbol: string = 'LIGHTUSDT') {
     const response = await this.authenticatedGet(
       '/fapi/v2/ticker/price' + '?symbol=' + symbol,
       { symbol: symbol },
       2,
       false,
     );
-    const walletBalance = await this.getWalletBalance();
-    const availableBalance = walletBalance.find(
-      (item) => item.asset === 'USDT',
-    );
-    console.log('Available Balance:', availableBalance);
-    const exchangeInfo = await this.getExchangeInfo(); // Example step size, replace with actual from exchangeInfo if needed
-    const stepSize = exchangeInfo.symbols
-      .find((s) => s.symbol === symbol)
-      .filters.find((f) => f.filterType === 'LOT_SIZE').stepSize;
-    const leverageInfo = await this.changeLeverage(symbol, 10); // Example leverage change
-    console.log('Leverage Set:', leverageInfo);
-    const quantity = this.calculateMaxQuantity(
-      parseFloat(availableBalance.balance),
-      leverageInfo.leverage,
-      parseFloat(response.price),
-      stepSize,
-    );
-    console.log('Max Quantity:', quantity);
-    const orderResponse = await this.placeMarketOrder(symbol, 'BUY', quantity); // Example market order
-    console.log('Order Response:', orderResponse);
-    const stopLossRequest = await this.cacheStopLossRequest(
-      'buy',
-      orderResponse.avgPrice,
-      quantity,
-      symbol,
-    );
+    // const walletBalance = await this.getWalletBalance();
+    // const availableBalance = walletBalance.find(
+    //   (item) => item.asset === 'USDT',
+    // );
+    // console.log('Available Balance:', availableBalance);
+    // const exchangeInfo = await this.getExchangeInfo(); // Example step size, replace with actual from exchangeInfo if needed
+    // const stepSize = exchangeInfo.symbols
+    //   .find((s) => s.symbol === symbol)
+    //   .filters.find((f) => f.filterType === 'LOT_SIZE').stepSize;
+    // const leverageInfo = await this.changeLeverage(symbol, 10); // Example leverage change
+    // console.log('Leverage Set:', leverageInfo);
+    // const quantity = this.calculateMaxQuantity(
+    //   parseFloat(availableBalance.balance),
+    //   leverageInfo.leverage,
+    //   parseFloat(response.price),
+    //   stepSize,
+    // );
+    // console.log('Max Quantity:', quantity);
+    // const orderResponse = await this.placeMarketOrder(symbol, 'BUY', quantity); // Example market order
+    // console.log('Order Response:', orderResponse);
+    // const stopLossRequest = await this.cacheStopLossRequest(
+    //   'buy',
+    //   orderResponse.avgPrice,
+    //   quantity,
+    //   symbol,
+    // );
 
-    const stopLossOrderResponse = await this.placeStopLoss(
-      orderResponse.orderId,
-      symbol,
-      'SELL',
-      quantity,
-      // stopLossRequest.stop_price as unknown as number,
-    );
+    // const stopLossOrderResponse = await this.placeStopLoss(
+    //   orderResponse.orderId,
+    //   symbol,
+    //   'SELL',
+    //   quantity,
+    //   // stopLossRequest.stop_price as unknown as number,
+    // );
 
-    console.log('Stop Loss Order Response:', stopLossOrderResponse);
+    // console.log('Stop Loss Order Response:', stopLossOrderResponse);
     return {
       response,
-      availableBalance,
-      stepSize,
-      leverageInfo,
-      orderResponse,
-      stopLossOrderResponse,
+      // availableBalance,
+      // stepSize,
+      // leverageInfo,
+      // orderResponse,
+      // stopLossOrderResponse,
     };
   }
 
@@ -446,40 +448,49 @@ export class BinanceService {
       'Running Binance local trading strategy... symbol:',
       symbol,
     );
-    // Implement your local trading strategy logic here
-    const walletBalance = await this.getWalletBalance();
+
+    const [walletBalance, exchangeInfo, leverageInfo] = await Promise.all([
+      this.getWalletBalance(),
+      this.getExchangeInfo(),
+      this.changeLeverage(symbol, 10),
+    ]);
+
     const availableBalance = walletBalance.find(
       (item) => item.asset === 'USDT',
     );
     console.log('Available Balance:', availableBalance);
-    const exchangeInfo = await this.getExchangeInfo(); // Example step size, replace with actual from exchangeInfo if needed
+
     const stepSize = exchangeInfo.symbols
       .find((s) => s.symbol === symbol)
       .filters.find((f) => f.filterType === 'LOT_SIZE').stepSize;
+
     console.log('Step Size:', stepSize);
-    const leverageInfo = await this.changeLeverage(symbol, 10); // Example leverage change
     console.log('Leverage Set:', leverageInfo);
+
+    this.binanceWsService.startTickerStream(
+      symbol,
+      parseFloat(availableBalance.balance),
+      leverageInfo.leverage,
+      stepSize,
+    );
 
     this.logger.log('Waiting for place order time...');
     await this.delayService.delay();
 
-    const tickerPrice = await this.getTickerPrice(symbol);
-    this.logger.log('Ticker Price:', tickerPrice);
-    const quantity = this.calculateMaxQuantity(
-      parseFloat(availableBalance.balance),
-      leverageInfo.leverage,
-      parseFloat(tickerPrice.price),
-      stepSize,
-    );
+    // const tickerPrice = await this.getTickerPrice(symbol);
+    const quantity = this.binanceWsService.getMaxQuantity(symbol, 200);
+    this.binanceWsService.terminateTickerStream();
+    // this.logger.log('Ticker Price:', tickerPrice);
+    // const quantity = this.calculateMaxQuantity(
+    //   parseFloat(availableBalance.balance),
+    //   leverageInfo.leverage,
+    //   parseFloat(tickerPrice.price),
+    //   stepSize,
+    // );
     console.log('Max Quantity:', quantity);
     const orderResponse = await this.placeMarketOrder(symbol, 'BUY', quantity); // Example market order
     console.log('Order Response:', orderResponse);
-    // this.cacheStopLossRequest(
-    //   'buy',
-    //   orderResponse.avgPrice,
-    //   quantity,
-    //   symbol,
-    // );
+    this.cacheStopLossRequest('buy', orderResponse.avgPrice, quantity, symbol);
     await this.delayService.delayForStopLoss();
     this.logger.log('Placing closing loss order now...');
     const stopLossOrderResponse = await this.placeStopLoss(
