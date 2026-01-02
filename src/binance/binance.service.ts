@@ -447,6 +447,7 @@ export class BinanceService {
 
     await this.delayService.delayForTicker();
     const quantity = this.binanceWsService.getMaxQuantity(symbol, 200);
+    this.logger.log('Calculated order quantity:', quantity);
     await this.binanceWsService.terminateTickerStream();
 
     this.logger.log('Waiting for place order time...');
