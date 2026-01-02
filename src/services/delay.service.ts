@@ -62,6 +62,10 @@ export class DelayService {
     await new Promise<void>((resolve) => setTimeout(resolve, delay));
   }
 
+  public async delayForTicker(): Promise<void> {
+    await this.waitUntilSameMinuteAtSecond(59, 980, false);
+  }
+
   public async delay(): Promise<void> {
     await this.waitUntilSameMinuteAtSecond(60, 1, false);
   }
