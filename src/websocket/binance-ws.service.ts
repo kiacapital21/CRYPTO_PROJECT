@@ -114,7 +114,6 @@ export class BinanceWsService implements OnModuleInit, OnModuleDestroy {
     if (!cache) {
       throw new Error('bookTicker not available yet');
     }
-    this.logger.log('Ticker Cache:', cache);
 
     // const age = Date.now() - cache.eventTime;
     // this.logger.log('Ticker Age:', age);
