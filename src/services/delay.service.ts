@@ -63,11 +63,11 @@ export class DelayService {
   }
 
   public async delay(): Promise<void> {
-    await this.waitUntilSameMinuteAtSecond(59, 995, false);
+    await this.waitUntilSameMinuteAtSecond(59, 996, false);
   }
 
   public async delayForTakeProfit(): Promise<void> {
-    await this.waitUntilSameMinuteAtSecond(1, 998, false);
+    await this.waitUntilSameMinuteAtSecond(1, 999, false);
   }
 
   public async delayForStopLoss(): Promise<void> {
