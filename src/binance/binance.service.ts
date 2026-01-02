@@ -447,19 +447,14 @@ export class BinanceService {
 
     await this.delayService.delayForTicker();
     const quantity = this.binanceWsService.getMaxQuantity(symbol, 200);
-    this.binanceWsService.terminateTickerStream();
+    await this.binanceWsService.terminateTickerStream();
 
     this.logger.log('Waiting for place order time...');
     await this.delayService.delay();
-    this.placeMarketOrder(symbol, 'SELL', quantity);
+    const orderResponse = await this.placeMarketOrder(symbol, 'SELL', quantity);
 
     await this.delayService.delayForTakeProfit();
     this.logger.log('Placing closing loss order now...');
-    const orderResponse = await this.cache.get<any>('lastBinanceOrderResponse');
-    if (!orderResponse) {
-      this.logger.error('No last order response found in cache.');
-      return;
-    }
     const takeProfitResponse = await this.placeTakeProfit(
       orderResponse.orderId,
       symbol,
