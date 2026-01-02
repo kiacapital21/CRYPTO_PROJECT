@@ -327,14 +327,15 @@ export class BinanceService {
           'X-MBX-APIKEY': this.apiKey,
         },
       });
-      this.logger.log('Main order placed.');
+      this.logger.log('Main order placed: ', response.data);
+      this.cache.set('lastBinanceOrderResponse', response.data);
       return response.data;
     } catch (error) {
       this.logger.error('Error placing market order:', error.response.data);
     }
   }
 
-  async placetakeProfit(
+  async placeTakeProfit(
     orderId: number,
     symbol: string,
     side: 'BUY' | 'SELL',
@@ -450,17 +451,24 @@ export class BinanceService {
     // const tickerPrice = await this.getTickerPrice(symbol);
     const quantity = this.binanceWsService.getMaxQuantity(symbol, 200);
     this.logger.log('Max Quantity:', quantity);
-    const [orderResponse] = await Promise.all([
-      this.placeMarketOrder(symbol, 'SELL', quantity),
-      this.binanceWsService.terminateTickerStream(),
-    ]);
+    this.placeMarketOrder(symbol, 'SELL', quantity); // Example market order
+    this.binanceWsService.terminateTickerStream();
+    // const [orderResponse] = await Promise.all([
+    //   this.placeMarketOrder(symbol, 'SELL', quantity),
+    //   this.binanceWsService.terminateTickerStream(),
+    // ]);
     // this.binanceWsService.terminateTickerStream();
     // const orderResponse = await this.placeMarketOrder(symbol, 'SELL', quantity); // Example market order
-    this.logger.log('Order Response:', orderResponse);
+    // this.logger.log('Order Response:', orderResponse);
     // this.cacheStopLossRequest('buy', orderResponse.avgPrice, quantity, symbol);
     await this.delayService.delayForTakeProfit();
     this.logger.log('Placing closing loss order now...');
-    const takeProfitResponse = await this.placetakeProfit(
+    const orderResponse = await this.cache.get<any>('lastBinanceOrderResponse');
+    if (!orderResponse) {
+      this.logger.error('No last order response found in cache.');
+      return;
+    }
+    const takeProfitResponse = await this.placeTakeProfit(
       orderResponse.orderId,
       symbol,
       'BUY',
