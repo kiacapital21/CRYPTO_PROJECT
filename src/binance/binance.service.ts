@@ -450,9 +450,9 @@ export class BinanceService {
     // const tickerPrice = await this.getTickerPrice(symbol);
     const quantity = this.binanceWsService.getMaxQuantity(symbol, 200);
     this.logger.log('Max Quantity:', quantity);
-    const [terminateResult, orderResponse] = await Promise.all([
-      this.binanceWsService.terminateTickerStream(),
+    const [orderResponse] = await Promise.all([
       this.placeMarketOrder(symbol, 'SELL', quantity),
+      this.binanceWsService.terminateTickerStream(),
     ]);
     // this.binanceWsService.terminateTickerStream();
     // const orderResponse = await this.placeMarketOrder(symbol, 'SELL', quantity); // Example market order

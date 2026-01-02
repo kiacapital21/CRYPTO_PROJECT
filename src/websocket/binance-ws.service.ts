@@ -69,9 +69,9 @@ export class BinanceWsService implements OnModuleInit, OnModuleDestroy {
       this.tickerCache.set(symbol, { bid, ask, eventTime, quantity });
 
       // 🔕 Keep this DEBUG level to avoid log flooding
-      this.logger.log(
-        `bookTicker ${symbol} | bid=${bid} ask=${ask} age=${Date.now() - eventTime}ms`,
-      );
+      // this.logger.log(
+      //   `bookTicker ${symbol} | bid=${bid} ask=${ask} age=${Date.now() - eventTime}ms`,
+      // );
     });
 
     this.ws.on('close', () => {
@@ -114,10 +114,10 @@ export class BinanceWsService implements OnModuleInit, OnModuleDestroy {
     if (!cache) {
       throw new Error('bookTicker not available yet');
     }
-    console.log('Ticker Cache:', cache);
+    this.logger.log('Ticker Cache:', cache);
 
-    const age = Date.now() - cache.eventTime;
-    console.log('Ticker Age:', age);
+    // const age = Date.now() - cache.eventTime;
+    // this.logger.log('Ticker Age:', age);
     // if (age > maxAgeMs) {
     //   throw new Error(`bookTicker stale (${age} ms old)`);
     // }
