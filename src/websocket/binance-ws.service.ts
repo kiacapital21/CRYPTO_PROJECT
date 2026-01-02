@@ -69,9 +69,9 @@ export class BinanceWsService implements OnModuleInit, OnModuleDestroy {
       this.tickerCache.set(symbol, { bid, ask, eventTime, quantity });
 
       // 🔕 Keep this DEBUG level to avoid log flooding
-      // this.logger.log(
-      //   `bookTicker ${symbol} | bid=${bid} ask=${ask} age=${Date.now() - eventTime}ms`,
-      // );
+      this.logger.log(
+        `bookTicker ${symbol} | bid=${bid} ask=${ask} age=${Date.now() - eventTime}ms`,
+      );
     });
 
     this.ws.on('close', () => {

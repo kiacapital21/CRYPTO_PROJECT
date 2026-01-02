@@ -157,36 +157,6 @@ export class BinanceService {
     }
   }
 
-  /**
-   * Make authenticated DELETE request
-   */
-  // async authenticatedDelete(path: string, params?: Record<string, any>) {
-  //   try {
-  //     const queryString = params
-  //       ? '?' + new URLSearchParams(params).toString()
-  //       : '';
-
-  //     // Generate headers immediately before making the request
-  //     const headers = this.createAuthHeaders('DELETE', path, queryString);
-
-  //     const config: AxiosRequestConfig = {
-  //       headers,
-  //       params,
-  //       timeout: 5000,
-  //     };
-
-  //     const response = await this.httpService.axiosRef.delete(
-  //       `${this.baseUrl}${path}`,
-  //       config,
-  //     );
-
-  //     return response.data;
-  //   } catch (error) {
-  //     const errorMessage = error.response?.data?.error?.code || error.message;
-  //     throw new Error(`Binance API Error: ${errorMessage}`);
-  //   }
-  // }
-
   // API Methods
   async getOpenOrders(productId?: number) {
     const params = productId
@@ -364,7 +334,7 @@ export class BinanceService {
     }
   }
 
-  async placeStopLoss(
+  async placetakeProfit(
     orderId: number,
     symbol: string,
     side: 'BUY' | 'SELL',
@@ -479,28 +449,24 @@ export class BinanceService {
 
     // const tickerPrice = await this.getTickerPrice(symbol);
     const quantity = this.binanceWsService.getMaxQuantity(symbol, 200);
-    this.binanceWsService.terminateTickerStream();
-    // this.logger.log('Ticker Price:', tickerPrice);
-    // const quantity = this.calculateMaxQuantity(
-    //   parseFloat(availableBalance.balance),
-    //   leverageInfo.leverage,
-    //   parseFloat(tickerPrice.price),
-    //   stepSize,
-    // );
-    console.log('Max Quantity:', quantity);
-    const orderResponse = await this.placeMarketOrder(symbol, 'BUY', quantity); // Example market order
-    console.log('Order Response:', orderResponse);
-    this.cacheStopLossRequest('buy', orderResponse.avgPrice, quantity, symbol);
-    await this.delayService.delayForStopLoss();
+    this.logger.log('Max Quantity:', quantity);
+    const [terminateResult, orderResponse] = await Promise.all([
+      this.binanceWsService.terminateTickerStream(),
+      this.placeMarketOrder(symbol, 'SELL', quantity),
+    ]);
+    // this.binanceWsService.terminateTickerStream();
+    // const orderResponse = await this.placeMarketOrder(symbol, 'SELL', quantity); // Example market order
+    this.logger.log('Order Response:', orderResponse);
+    // this.cacheStopLossRequest('buy', orderResponse.avgPrice, quantity, symbol);
+    await this.delayService.delayForTakeProfit();
     this.logger.log('Placing closing loss order now...');
-    const stopLossOrderResponse = await this.placeStopLoss(
+    const takeProfitResponse = await this.placetakeProfit(
       orderResponse.orderId,
       symbol,
-      'SELL',
+      'BUY',
       quantity,
-      // stopLossRequest.stop_price as unknown as number,
     );
 
-    console.log('Stop Loss Order Response:', stopLossOrderResponse);
+    console.log('Take Profit Order Response:', takeProfitResponse);
   }
 }
