@@ -474,25 +474,18 @@ export class BinanceService {
       stepSize,
     );
 
+    await this.delayService.delayForTickerStream();
+    const quantity = this.binanceWsService.getMaxQuantity(symbol, 200);
+    this.logger.log('Calculated order quantity:', quantity);
+    await this.binanceWsService.terminateTickerStream();
+
     this.logger.log('Waiting for place order time...');
     await this.delayService.delay();
-
-    // const tickerPrice = await this.getTickerPrice(symbol);
-    const quantity = this.binanceWsService.getMaxQuantity(symbol, 200);
-    this.binanceWsService.terminateTickerStream();
-    // this.logger.log('Ticker Price:', tickerPrice);
-    // const quantity = this.calculateMaxQuantity(
-    //   parseFloat(availableBalance.balance),
-    //   leverageInfo.leverage,
-    //   parseFloat(tickerPrice.price),
-    //   stepSize,
-    // );
-    console.log('Max Quantity:', quantity);
     const orderResponse = await this.placeMarketOrder(symbol, 'BUY', quantity); // Example market order
     console.log('Order Response:', orderResponse);
-    this.cacheStopLossRequest('buy', orderResponse.avgPrice, quantity, symbol);
+    // this.cacheStopLossRequest('buy', orderResponse.avgPrice, quantity, symbol);
+
     await this.delayService.delayForStopLoss();
-    this.logger.log('Placing closing loss order now...');
     const stopLossOrderResponse = await this.placeStopLoss(
       orderResponse.orderId,
       symbol,
@@ -501,6 +494,6 @@ export class BinanceService {
       // stopLossRequest.stop_price as unknown as number,
     );
 
-    console.log('Stop Loss Order Response:', stopLossOrderResponse);
+    this.logger.log('Stop Loss Order Response:', stopLossOrderResponse);
   }
 }
