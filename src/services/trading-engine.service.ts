@@ -75,7 +75,7 @@ export class TradingEngineService {
     if (cacheCrypto) {
       symbol = cacheCrypto;
     }
-    await this.orders.buy(symbol);
+    await this.orders.sell(symbol);
     // await this.orders.sell(symbol);
     this.logger.log('Ending local trading strategy...');
     this.logger.log('************ALERT*********************');
