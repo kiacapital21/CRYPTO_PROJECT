@@ -10,7 +10,7 @@ import { StopLossService } from './stop-loss.service';
 export class OrderService {
   private logger = new Logger(OrderService.name);
   t;
-  private readonly BALANCE_BUFFER = 0.98; // Extract constant
+  private readonly BALANCE_BUFFER = 0.95; // Extract constant
 
   constructor(
     private deltaExchangeService: DeltaExchangeService,

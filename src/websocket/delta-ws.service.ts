@@ -26,7 +26,7 @@ export class DeltaWsService implements OnModuleInit, OnModuleDestroy {
   constructor(@Inject(CACHE_MANAGER) private cache: Cache) {}
 
   onModuleInit() {
-    this.connect();
+   // this.connect();
   }
 
   onModuleDestroy() {

@@ -12,10 +12,10 @@ export class LeverageService {
       product.id,
     );
     this.logger.log('Current leverage:', leverageResponse);
-    if (leverageResponse.leverage != 10) {
-      this.logger.log('Updating leverage to 10');
+    if (leverageResponse.leverage != 15) {
+      this.logger.log('Updating leverage to 15');
       const updateLeverageResponse =
-        await this.deltaExchangeService.changeOrderLeverage(product.id, 10);
+        await this.deltaExchangeService.changeOrderLeverage(product.id, 15);
       return updateLeverageResponse.leverage;
     }
     this.logger.log('Leverage:', leverageResponse.leverage);
