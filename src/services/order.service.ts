@@ -41,8 +41,7 @@ export class OrderService {
       const contractValue = parseFloat(productData.contract_value);
       const productId = productData.id;
 
-      this.logger.log('Waiting for place order time...');
-      await this.delayService.delay();
+      await this.delayService.delayForTicker();
 
       const entryPrice = await this.tickerService.getEntryPrice(productId);
       const maxSize = this.calculateMaxSize(
@@ -51,6 +50,18 @@ export class OrderService {
         contractValue,
         entryPrice,
       );
+      this.logger.log(`Calculated max size for ${side} order: ${maxSize}`);
+
+      this.logger.log('Waiting for place order time...');
+      await this.delayService.delay();
+
+      // const entryPrice = await this.tickerService.getEntryPrice(productId);
+      // const maxSize = this.calculateMaxSize(
+      //   availableBalance,
+      //   leverage,
+      //   contractValue,
+      //   entryPrice,
+      // );
 
       const orderResponse = await this.placeMainOrder(productId, maxSize, side);
 
