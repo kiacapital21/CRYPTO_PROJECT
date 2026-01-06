@@ -320,6 +320,8 @@ export class BinanceService {
         .createHmac('sha256', this.apiSecret)
         .update(query)
         .digest('hex');
+      console.log('Placing main order with query:');
+      console.log(query);
 
       const url = `${this.baseUrl}/fapi/v1/order?${query}&signature=${signature}`;
       const response = await axios.post(url, null, {
@@ -345,7 +347,7 @@ export class BinanceService {
     try {
       const timestamp = Date.now();
       const query = `orderId=${orderId}&reduceOnly=true&newOrderRespType=RESULT&type=MARKET&symbol=${symbol}&side=${side}&quantity=${quantity}&timestamp=${timestamp}`;
-      console.log('Placing stop loss with query:');
+      console.log('Placing take profit with query:');
       console.log(query);
       const signature = crypto
         .createHmac('sha256', this.apiSecret)
