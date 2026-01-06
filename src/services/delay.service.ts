@@ -22,9 +22,17 @@ export class DelayService {
   private async waitUntilSameMinuteAtSecond(
     second: number,
     millisecond: number = 0,
+    isStopLoss: boolean = false,
   ): Promise<void> {
     const istNow = this.getIstNow();
     const targetTime = istNow.getTime();
+
+    if (isStopLoss && istNow.getSeconds() != 59) {
+      this.logger.debug(
+        `Target time ${second}:${millisecond} already passed this minute`,
+      );
+      return;
+    }
 
     // Calculate target timestamp directly (avoid creating intermediate Date object)
     const targetMs =
@@ -59,6 +67,6 @@ export class DelayService {
   }
 
   public async delayForStopLoss(): Promise<void> {
-    await this.waitUntilSameMinuteAtSecond(59, 950);
+    await this.waitUntilSameMinuteAtSecond(59, 950, true);
   }
 }
