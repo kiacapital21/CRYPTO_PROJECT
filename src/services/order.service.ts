@@ -9,7 +9,6 @@ import { StopLossService } from './stop-loss.service';
 @Injectable()
 export class OrderService {
   private logger = new Logger(OrderService.name);
-  t;
   private readonly BALANCE_BUFFER = 0.95; // Extract constant
 
   constructor(

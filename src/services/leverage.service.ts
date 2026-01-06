@@ -3,6 +3,7 @@ import { DeltaExchangeService } from 'src/deltaExchange/delta-exchange.service';
 
 @Injectable()
 export class LeverageService {
+  private readonly LEVERAGE = 10;
   private logger = new Logger(LeverageService.name);
   constructor(private deltaExchangeService: DeltaExchangeService) {}
   async checkAndUpdateLeverage(symbol: string) {
@@ -12,10 +13,13 @@ export class LeverageService {
       product.id,
     );
     this.logger.log('Current leverage:', leverageResponse);
-    if (leverageResponse.leverage != 15) {
-      this.logger.log('Updating leverage to 15');
+    if (leverageResponse.leverage != this.LEVERAGE) {
+      this.logger.log('Updating leverage to :', this.LEVERAGE);
       const updateLeverageResponse =
-        await this.deltaExchangeService.changeOrderLeverage(product.id, 15);
+        await this.deltaExchangeService.changeOrderLeverage(
+          product.id,
+          this.LEVERAGE,
+        );
       return updateLeverageResponse.leverage;
     }
     this.logger.log('Leverage:', leverageResponse.leverage);
