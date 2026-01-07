@@ -79,6 +79,42 @@ export class BinanceSchedulerService implements OnModuleInit {
     });
   }
 
+  startAll() {
+    this.logger.log('Starting all cron jobs');
+    this.onModuleInit();
+  }
+
+  stopAll() {
+    // 🛑 Stop all cron jobs
+    this.schedulerRegistry.getCronJobs().forEach((job, name) => {
+      job.stop();
+      this.schedulerRegistry.deleteCronJob(name);
+      this.logger.log(`Stopped cron job: ${name}`);
+    });
+
+    // 🛑 Stop all intervals
+    this.schedulerRegistry.getIntervals().forEach((name) => {
+      this.schedulerRegistry.deleteInterval(name);
+      this.logger.log(`Stopped interval: ${name}`);
+    });
+
+    // 🛑 Stop all timeouts
+    this.schedulerRegistry.getTimeouts().forEach((name) => {
+      this.schedulerRegistry.deleteTimeout(name);
+      this.logger.log(`Stopped timeout: ${name}`);
+    });
+
+    return 'All scheduler jobs stopped';
+  }
+
+  status() {
+    return {
+      cron: Array.from(this.schedulerRegistry.getCronJobs().keys()),
+      intervals: this.schedulerRegistry.getIntervals(),
+      timeouts: this.schedulerRegistry.getTimeouts(),
+    };
+  }
+
   private running = false;
 
   // private async runMorningStrategy(): Promise<void> {
