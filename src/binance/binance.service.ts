@@ -417,6 +417,11 @@ export class BinanceService {
 
   async runLocalStrategy() {
     let symbol = process.env.BINANCE_SYMBOL || '';
+    const cacheCrypto = await this.cache.get<string>('binanceTradingCrypto');
+    this.logger.log(`Cached trading crypto: ${cacheCrypto}`);
+    if (cacheCrypto) {
+      symbol = cacheCrypto;
+    }
     this.logger.log(
       'Running Binance local trading strategy... symbol:',
       symbol,
