@@ -395,7 +395,7 @@ export class BinanceService {
 
   async setCrypto(symbol: string) {
     this.logger.log(`Setting binance trading crypto to ${symbol}`);
-    await this.cache.set('binanceTradingCrypto', symbol);
+    await this.cache.set('binanceTradingCrypto', symbol, 1 * 60 * 60 * 1000);
     this.logger.log(`Binance trading crypto set to ${symbol}`);
     return {
       success: true,
