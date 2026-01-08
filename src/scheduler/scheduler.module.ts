@@ -1,5 +1,5 @@
 // scheduler.module.ts
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { SchedulerService } from './scheduler.service';
 import { FundingService } from 'src/funding/funding.service';
 import { OrderService } from 'src/services/order.service';
@@ -34,6 +34,6 @@ import { StopLossService } from 'src/services/stop-loss.service';
     OrderService,
     DeltaExchangeService,
   ],
-  imports: [DeltaExchangeModule, HttpModule, WsModule],
+  imports: [forwardRef(() => DeltaExchangeModule), HttpModule, WsModule],
 })
 export class SchedulerModule {}

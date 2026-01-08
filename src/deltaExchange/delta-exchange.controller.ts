@@ -9,11 +9,15 @@ import {
   Logger,
 } from '@nestjs/common';
 import { DeltaExchangeService } from './delta-exchange.service';
+import { SchedulerService } from 'src/scheduler/scheduler.service';
 
 @Controller('delta-exchange')
 export class DeltaExchangeController {
   private logger = new Logger(DeltaExchangeController.name);
-  constructor(private readonly deltaExchangeService: DeltaExchangeService) {}
+  constructor(
+    private readonly deltaExchangeService: DeltaExchangeService,
+    private readonly schedulerService: SchedulerService,
+  ) {}
 
   @Get('ping')
   async ping() {
@@ -50,5 +54,22 @@ export class DeltaExchangeController {
   @Delete('clear-crypto')
   async clearCrypto() {
     return this.deltaExchangeService.clearCrypto();
+  }
+
+  @Post('stop-service')
+  async stopService() {
+    return this.schedulerService.stopAll();
+  }
+
+  @Post('start-service')
+  async startService() {
+    return this.schedulerService.startAll();
+  }
+
+  @Get('status')
+  async status() {
+    const status = this.schedulerService.status();
+    console.log('Status:', status);
+    return status;
   }
 }
