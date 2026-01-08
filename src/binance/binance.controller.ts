@@ -57,6 +57,8 @@ export class BinanceController {
 
   @Get('status')
   async status() {
-    return this.binanceSchedulerService.status();
+    const status = this.binanceSchedulerService.status();
+    console.log('Status:', status);
+    return status;
   }
 }

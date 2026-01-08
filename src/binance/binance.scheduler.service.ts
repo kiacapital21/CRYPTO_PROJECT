@@ -81,14 +81,16 @@ export class BinanceSchedulerService implements OnModuleInit {
 
   startAll() {
     this.logger.log('Starting all cron jobs');
-    this.onModuleInit();
+    this.schedulerRegistry.getCronJobs().forEach((job, name) => {
+      job.start();
+      this.logger.log(`Started cron job: ${name}`);
+    });
   }
 
   stopAll() {
     // 🛑 Stop all cron jobs
     this.schedulerRegistry.getCronJobs().forEach((job, name) => {
       job.stop();
-      this.schedulerRegistry.deleteCronJob(name);
       this.logger.log(`Stopped cron job: ${name}`);
     });
 
@@ -109,9 +111,13 @@ export class BinanceSchedulerService implements OnModuleInit {
 
   status() {
     return {
-      cron: Array.from(this.schedulerRegistry.getCronJobs().keys()),
-      intervals: this.schedulerRegistry.getIntervals(),
-      timeouts: this.schedulerRegistry.getTimeouts(),
+      cron: Array.from(this.schedulerRegistry.getCronJobs().entries()).map(
+        ([name, job]) => ({
+          name,
+          running: job.isActive,
+          nextDate: job.isActive ? job.nextDate().toISO() : null,
+        }),
+      ),
     };
   }
 
