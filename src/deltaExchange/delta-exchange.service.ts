@@ -296,7 +296,7 @@ export class DeltaExchangeService {
 
   async setCrypto(symbol: string) {
     this.logger.log(`Setting trading crypto to ${symbol}`);
-    await this.cache.set('tradingCrypto', symbol);
+    await this.cache.set('tradingCrypto', symbol, 1 * 60 * 60 * 1000);
     this.logger.log(`Trading crypto set to ${symbol}`);
     return { success: true, symbol: await this.cache.get('tradingCrypto') };
   }
