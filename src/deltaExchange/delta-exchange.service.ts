@@ -304,7 +304,7 @@ export class DeltaExchangeService {
   async getCrypto() {
     const symbol = await this.cache.get<string>('tradingCrypto');
     this.logger.log(`Retrieved trading crypto: ${symbol}`);
-    return { symbol: symbol || null };
+    return { symbol: symbol || process.env.SYMBOL || '' };
   }
 
   async clearCrypto() {
