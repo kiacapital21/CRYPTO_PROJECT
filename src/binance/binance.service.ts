@@ -16,7 +16,7 @@ export class BinanceService {
   private readonly baseUrl: string;
   private readonly apiKey: string;
   private readonly apiSecret: string;
-  private readonly BALANCE_BUFFER = 0.90; // Extract constant
+  private readonly BALANCE_BUFFER = 0.9; // Extract constant
   private readonly STOP_LOSS_PERCENTAGE = 0.003; // 0.3% stop loss
   private logger = new Logger(BinanceService.name);
   private readonly STOP_LOSS_CACHE_KEY = 'binanceStopLossRequest';
@@ -406,7 +406,7 @@ export class BinanceService {
   async getCrypto() {
     const symbol = await this.cache.get<string>('binanceTradingCrypto');
     this.logger.log(`Retrieved binance trading crypto: ${symbol}`);
-    return { symbol: symbol || null };
+    return { symbol: symbol || process.env.BINANCE_SYMBOL || '' };
   }
 
   async clearCrypto() {
