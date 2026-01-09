@@ -63,10 +63,10 @@ export class DelayService {
   }
 
   public async delay(): Promise<void> {
-    await this.waitUntilSameMinuteAtSecond(58, 800);
+    await this.waitUntilSameMinuteAtSecond(58, 600);
   }
 
   public async delayForStopLoss(): Promise<void> {
-    await this.waitUntilSameMinuteAtSecond(59, 900, true);
+    await this.waitUntilSameMinuteAtSecond(59, 800, true);
   }
 }
