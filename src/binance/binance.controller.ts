@@ -9,11 +9,15 @@ import {
   Logger,
 } from '@nestjs/common';
 import { BinanceService } from './binance.service';
+import { BinanceSchedulerService } from './binance.scheduler.service';
 
 @Controller('binance')
 export class BinanceController {
   private logger = new Logger(BinanceController.name);
-  constructor(private readonly binanceService: BinanceService) {}
+  constructor(
+    private readonly binanceService: BinanceService,
+    private readonly binanceSchedulerService: BinanceSchedulerService,
+  ) {}
 
   @Get('ping')
   async ping() {
@@ -25,16 +29,6 @@ export class BinanceController {
   async getMarkPrice() {
     return this.binanceService.getMarkPrice();
   }
-
-  // @Post('orders')
-  // async placeOrder(@Body() orderData: any) {
-  //   return this.binanceService.placeOrder(orderData);
-  // }
-
-  // @Get('wallet')
-  // async getWallet() {
-  //   return this.binanceService.getWallet();
-  // }
 
   @Get('get-crypto')
   async getCrypto() {
@@ -49,5 +43,22 @@ export class BinanceController {
   @Delete('clear-crypto')
   async clearCrypto() {
     return this.binanceService.clearCrypto();
+  }
+
+  @Post('stop-service')
+  async stopService() {
+    return this.binanceSchedulerService.stopAll();
+  }
+
+  @Post('start-service')
+  async startService() {
+    return this.binanceSchedulerService.startAll();
+  }
+
+  @Get('status')
+  async status() {
+    const status = this.binanceSchedulerService.status();
+    console.log('Status:', status);
+    return status;
   }
 }

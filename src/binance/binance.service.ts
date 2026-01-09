@@ -16,7 +16,7 @@ export class BinanceService {
   private readonly baseUrl: string;
   private readonly apiKey: string;
   private readonly apiSecret: string;
-  private readonly BALANCE_BUFFER = 0.95; // Extract constant
+  private readonly BALANCE_BUFFER = 0.9; // Extract constant
   private readonly STOP_LOSS_PERCENTAGE = 0.003; // 0.3% stop loss
   private logger = new Logger(BinanceService.name);
   private readonly STOP_LOSS_CACHE_KEY = 'binanceStopLossRequest';
@@ -156,36 +156,6 @@ export class BinanceService {
       throw new Error(`Binance API Error: ${errorMessage}`);
     }
   }
-
-  /**
-   * Make authenticated DELETE request
-   */
-  // async authenticatedDelete(path: string, params?: Record<string, any>) {
-  //   try {
-  //     const queryString = params
-  //       ? '?' + new URLSearchParams(params).toString()
-  //       : '';
-
-  //     // Generate headers immediately before making the request
-  //     const headers = this.createAuthHeaders('DELETE', path, queryString);
-
-  //     const config: AxiosRequestConfig = {
-  //       headers,
-  //       params,
-  //       timeout: 5000,
-  //     };
-
-  //     const response = await this.httpService.axiosRef.delete(
-  //       `${this.baseUrl}${path}`,
-  //       config,
-  //     );
-
-  //     return response.data;
-  //   } catch (error) {
-  //     const errorMessage = error.response?.data?.error?.code || error.message;
-  //     throw new Error(`Binance API Error: ${errorMessage}`);
-  //   }
-  // }
 
   // API Methods
   async getOpenOrders(productId?: number) {
@@ -350,6 +320,8 @@ export class BinanceService {
         .createHmac('sha256', this.apiSecret)
         .update(query)
         .digest('hex');
+      console.log('Placing main order with query:');
+      console.log(query);
 
       const url = `${this.baseUrl}/fapi/v1/order?${query}&signature=${signature}`;
       const response = await axios.post(url, null, {
@@ -357,7 +329,8 @@ export class BinanceService {
           'X-MBX-APIKEY': this.apiKey,
         },
       });
-      this.logger.log('Main order placed.');
+      this.logger.log('Main order placed: ', response.data);
+      this.cache.set('lastBinanceOrderResponse', response.data);
       return response.data;
     } catch (error) {
       this.logger.error('Error placing market order:', error.response.data);
@@ -422,7 +395,7 @@ export class BinanceService {
 
   async setCrypto(symbol: string) {
     this.logger.log(`Setting binance trading crypto to ${symbol}`);
-    await this.cache.set('binanceTradingCrypto', symbol);
+    await this.cache.set('binanceTradingCrypto', symbol, 1 * 60 * 60 * 1000);
     this.logger.log(`Binance trading crypto set to ${symbol}`);
     return {
       success: true,
@@ -433,7 +406,7 @@ export class BinanceService {
   async getCrypto() {
     const symbol = await this.cache.get<string>('binanceTradingCrypto');
     this.logger.log(`Retrieved binance trading crypto: ${symbol}`);
-    return { symbol: symbol || null };
+    return { symbol: symbol || process.env.BINANCE_SYMBOL || '' };
   }
 
   async clearCrypto() {
@@ -444,6 +417,11 @@ export class BinanceService {
 
   async runLocalStrategy() {
     let symbol = process.env.BINANCE_SYMBOL || '';
+    const cacheCrypto = await this.cache.get<string>('binanceTradingCrypto');
+    this.logger.log(`Cached trading crypto: ${cacheCrypto}`);
+    if (cacheCrypto) {
+      symbol = cacheCrypto;
+    }
     this.logger.log(
       'Running Binance local trading strategy... symbol:',
       symbol,

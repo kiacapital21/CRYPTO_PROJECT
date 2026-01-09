@@ -117,7 +117,7 @@ export class BinanceWsService implements OnModuleInit, OnModuleDestroy {
     console.log('Ticker Cache:', cache);
 
     const age = Date.now() - cache.eventTime;
-    console.log('Ticker Age:', age);
+    // console.log('Ticker Age:', age);
     // if (age > maxAgeMs) {
     //   throw new Error(`bookTicker stale (${age} ms old)`);
     // }
