@@ -13,9 +13,7 @@ export class FundingState {
   //   this.fundingAmounts.set(symbol, initialBalance);
   // }
 
-  onAccountUpdate(event: any) {
-    console.log('Received ACCOUNT_UPDATE', JSON.stringify(event));
-
+  onAccountUpdate() {
     // if (!event?.a) return;
 
     // // Check balance updates (funding fees are applied here)
