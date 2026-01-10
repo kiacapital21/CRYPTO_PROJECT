@@ -419,7 +419,7 @@ export class BinanceService {
   ) {
     this.eventEmitter.on('funding.fee', async () => {
       // if (data.asset === 'USDT') {
-      console.log('Funding fee received, safe to close position.');
+      this.logger.log('Funding fee received, safe to close position.');
       await this.performClose(symbol, quantity, orderResponse);
       // }
     });

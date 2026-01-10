@@ -24,9 +24,25 @@ export class BinanceUserWsService implements OnModuleInit {
     console.log('listenKey:', listenKey);
     // const url = `wss://fstream.binancefuture.com/ws/${listenKey}`;
     const url = `wss://fstream.binance.com/ws/${listenKey}`;
-    this.ws = new WebSocket(url);
+    this.ws = new WebSocket(url, {
+      perMessageDeflate: false,
+      handshakeTimeout: 5000,
+    });
     console.log('WS connected for account updates.');
-    this.ws.on('message', (msg) => this.handle(JSON.parse(msg.toString())));
+    this.ws.on('message', (msg) => {
+      let event: any;
+      try {
+        event = JSON.parse(msg.toString());
+      } catch {
+        return;
+      }
+
+      // ⚡ fast exit for non-account updates
+      if (event.e !== 'ACCOUNT_UPDATE') return;
+      if (event.a?.m !== 'FUNDING_FEE') return;
+      this.logger.log('FUNDING Event:', JSON.stringify(event));
+      this.fundingState.onAccountUpdate();
+    });
 
     this.ws.on('close', () => {
       this.logger.warn('WS closed');
@@ -40,15 +56,5 @@ export class BinanceUserWsService implements OnModuleInit {
 
   stop() {
     this.ws?.close();
-  }
-
-  private handle(event: any) {
-    if (event.e === 'ACCOUNT_UPDATE') {
-      console.log('Event:', JSON.stringify(event));
-    }
-    if (event.e === 'ACCOUNT_UPDATE' && event.m == 'FUNDING_FEE') {
-      console.log('FUNDING Event:', JSON.stringify(event));
-      this.fundingState.onAccountUpdate(event);
-    }
   }
 }
