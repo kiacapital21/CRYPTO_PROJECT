@@ -25,11 +25,6 @@ export class BinanceController {
     return 'pong';
   }
 
-  @Get('markPrice')
-  async getMarkPrice() {
-    return this.binanceService.getMarkPrice();
-  }
-
   @Get('get-crypto')
   async getCrypto() {
     return this.binanceService.getCrypto();

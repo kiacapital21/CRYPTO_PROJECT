@@ -10,6 +10,8 @@ import type { Cache } from 'cache-manager';
 import { DelayService } from 'src/services/delay.service';
 import EventEmitter2 from 'eventemitter2';
 import { BinanceWsService } from 'src/websocket/binance-ws.service';
+import { FundingState } from 'src/websocket/funding-state';
+import { BinanceUserWsService } from 'src/websocket/binance-user-ws.service';
 
 @Injectable()
 export class BinanceService {
@@ -17,6 +19,7 @@ export class BinanceService {
   private readonly apiKey: string;
   private readonly apiSecret: string;
   private readonly BALANCE_BUFFER = 0.9; // Extract constant
+  private readonly LEVERAGE = 5;
   private readonly STOP_LOSS_PERCENTAGE = 0.003; // 0.3% stop loss
   private logger = new Logger(BinanceService.name);
   private readonly STOP_LOSS_CACHE_KEY = 'binanceStopLossRequest';
@@ -28,6 +31,8 @@ export class BinanceService {
     private readonly delayService: DelayService,
     private eventEmitter: EventEmitter2,
     private readonly binanceWsService: BinanceWsService,
+    private readonly binanceUserWsService: BinanceUserWsService,
+    private readonly state: FundingState,
   ) {
     this.baseUrl =
       this.configService.get<string>('BINANCE_BASE_URL') ||
@@ -157,67 +162,6 @@ export class BinanceService {
     }
   }
 
-  // API Methods
-  async getOpenOrders(productId?: number) {
-    const params = productId
-      ? { product_id: productId, state: 'open' }
-      : { state: 'open' };
-    return this.authenticatedGet('/v2/orders', params);
-  }
-
-  async getMarkPrice(symbol: string = 'LIGHTUSDT') {
-    const response = await this.authenticatedGet(
-      '/fapi/v2/ticker/price' + '?symbol=' + symbol,
-      { symbol: symbol },
-      2,
-      false,
-    );
-    // const walletBalance = await this.getWalletBalance();
-    // const availableBalance = walletBalance.find(
-    //   (item) => item.asset === 'USDT',
-    // );
-    // console.log('Available Balance:', availableBalance);
-    // const exchangeInfo = await this.getExchangeInfo(); // Example step size, replace with actual from exchangeInfo if needed
-    // const stepSize = exchangeInfo.symbols
-    //   .find((s) => s.symbol === symbol)
-    //   .filters.find((f) => f.filterType === 'LOT_SIZE').stepSize;
-    // const leverageInfo = await this.changeLeverage(symbol, 10); // Example leverage change
-    // console.log('Leverage Set:', leverageInfo);
-    // const quantity = this.calculateMaxQuantity(
-    //   parseFloat(availableBalance.balance),
-    //   leverageInfo.leverage,
-    //   parseFloat(response.price),
-    //   stepSize,
-    // );
-    // console.log('Max Quantity:', quantity);
-    // const orderResponse = await this.placeMarketOrder(symbol, 'BUY', quantity); // Example market order
-    // console.log('Order Response:', orderResponse);
-    // const stopLossRequest = await this.cacheStopLossRequest(
-    //   'buy',
-    //   orderResponse.avgPrice,
-    //   quantity,
-    //   symbol,
-    // );
-
-    // const stopLossOrderResponse = await this.placeStopLoss(
-    //   orderResponse.orderId,
-    //   symbol,
-    //   'SELL',
-    //   quantity,
-    //   // stopLossRequest.stop_price as unknown as number,
-    // );
-
-    // console.log('Stop Loss Order Response:', stopLossOrderResponse);
-    return {
-      response,
-      // availableBalance,
-      // stepSize,
-      // leverageInfo,
-      // orderResponse,
-      // stopLossOrderResponse,
-    };
-  }
-
   async getTickerPrice(symbol: string) {
     this.logger.log('Fetching ticker data for entry price...');
     return this.authenticatedGet(
@@ -306,13 +250,21 @@ export class BinanceService {
     return res.data;
   }
 
+  async getPremiumIndex(symbol: string) {
+    return this.authenticatedGet(
+      '/fapi/v1/premiumIndex?symbol=' + symbol,
+      { symbol: symbol },
+      2,
+      false,
+    );
+  }
+
   async placeMarketOrder(
     symbol: string,
     side: 'BUY' | 'SELL',
     quantity: number,
   ) {
     try {
-      this.logger.log('Placing main order...');
       const timestamp = Date.now();
       const query = `newOrderRespType=RESULT&symbol=${symbol}&side=${side}&type=MARKET&quantity=${quantity}&timestamp=${timestamp}`;
 
@@ -330,7 +282,7 @@ export class BinanceService {
         },
       });
       this.logger.log('Main order placed: ', response.data);
-      this.cache.set('lastBinanceOrderResponse', response.data);
+      this.eventEmitter.emit('placedOrder', response.data);
       return response.data;
     } catch (error) {
       this.logger.error('Error placing market order:', error.response.data);
@@ -363,36 +315,6 @@ export class BinanceService {
     }
   }
 
-  // Get current order leverage for a product
-  async getOrderLeverage(productId: number): Promise<any> {
-    const path = `/v2/products/${productId}/orders/leverage`;
-
-    try {
-      const response = await this.authenticatedGet(`${path}`);
-      return response.result;
-    } catch (error) {
-      throw new Error(`Failed to get order leverage: ${error.message}`);
-    }
-  }
-
-  // Change order leverage for a product
-  // async changeOrderLeverage(productId: number, leverage: number): Promise<any> {
-  //   const path = `/v2/products/${productId}/orders/leverage`;
-
-  //   const leveragePayload = {
-  //     leverage: leverage,
-  //   };
-
-  //   try {
-  //     const response = await this.authenticatedPost(`${path}`, leveragePayload);
-  //     return response.result;
-  //   } catch (error) {
-  //     throw new Error(
-  //       `Failed to change order leverage: ${error.response?.data?.error || error.message}`,
-  //     );
-  //   }
-  // }
-
   async setCrypto(symbol: string) {
     this.logger.log(`Setting binance trading crypto to ${symbol}`);
     await this.cache.set('binanceTradingCrypto', symbol, 1 * 60 * 60 * 1000);
@@ -415,6 +337,13 @@ export class BinanceService {
     return { success: true };
   }
 
+  getUSDTBalance(walletBalance) {
+    const availableBalance = walletBalance.find(
+      (item) => item.asset === 'USDT',
+    );
+    return availableBalance;
+  }
+
   async runLocalStrategy() {
     let symbol = process.env.BINANCE_SYMBOL || '';
     const cacheCrypto = await this.cache.get<string>('binanceTradingCrypto');
@@ -427,23 +356,26 @@ export class BinanceService {
       symbol,
     );
 
-    const [walletBalance, exchangeInfo, leverageInfo] = await Promise.all([
-      this.getWalletBalance(),
-      this.getExchangeInfo(),
-      this.changeLeverage(symbol, 10),
-    ]);
+    const [walletBalance, exchangeInfo, leverageInfo, premiumIndex] =
+      await Promise.all([
+        this.getWalletBalance(),
+        this.getExchangeInfo(),
+        this.changeLeverage(symbol, this.LEVERAGE),
+        this.getPremiumIndex(symbol),
+      ]);
 
-    const availableBalance = walletBalance.find(
-      (item) => item.asset === 'USDT',
-    );
+    const availableBalance = this.getUSDTBalance(walletBalance);
     console.log('Available Balance:', availableBalance);
 
     const stepSize = exchangeInfo.symbols
       .find((s) => s.symbol === symbol)
       .filters.find((f) => f.filterType === 'LOT_SIZE').stepSize;
 
+    let fundingTime = premiumIndex.nextFundingTime;
+    fundingTime = new Date().getTime() + 10 * 1000;
     console.log('Step Size:', stepSize);
     console.log('Leverage Set:', leverageInfo);
+    console.log('Next Funding Time:', fundingTime);
 
     this.binanceWsService.startTickerStream(
       symbol,
@@ -451,27 +383,73 @@ export class BinanceService {
       leverageInfo.leverage,
       stepSize,
     );
-
+    await this.binanceUserWsService.connect();
     await this.delayService.delayForTickerStream();
     const quantity = this.binanceWsService.getMaxQuantity(symbol, 200);
     this.logger.log('Calculated order quantity:', quantity);
     await this.binanceWsService.terminateTickerStream();
 
-    this.logger.log('Waiting for place order time...');
-    await this.delayService.delay();
-    const orderResponse = await this.placeMarketOrder(symbol, 'BUY', quantity); // Example market order
-    console.log('Order Response:', orderResponse);
-    // this.cacheStopLossRequest('buy', orderResponse.avgPrice, quantity, symbol);
+    this.listenToIntervalAndForceClose(symbol, quantity);
 
-    await this.delayService.delayForStopLoss();
+    this.logger.log('Waiting for place order time...');
+
+    await this.delayService.delay();
+
+    const orderResponse = await this.placeMarketOrder(symbol, 'BUY', quantity);
+    if (!orderResponse?.orderId) return;
+    this.listenToFundFee(symbol, quantity, orderResponse);
+  }
+
+  private async performClose(
+    symbol: string,
+    quantity: number,
+    orderResponse: any,
+    isForceClose = false,
+  ) {
+    console.log('is force close:', isForceClose);
+    await this.safeClose(symbol, quantity, orderResponse);
+    this.binanceUserWsService.stop();
+    this.state.clear();
+  }
+
+  private listenToFundFee(
+    symbol: string,
+    quantity: number,
+    orderResponse: any,
+  ) {
+    this.eventEmitter.on('funding.fee', async () => {
+      // if (data.asset === 'USDT') {
+      console.log('Funding fee received, safe to close position.');
+      await this.performClose(symbol, quantity, orderResponse);
+      // }
+    });
+  }
+
+  private listenToIntervalAndForceClose(symbol: string, quantity: number) {
+    console.log('listening to place order');
+    this.eventEmitter.on('placedOrder', async (orderResponse) => {
+      console.log('Placed Order Response inside listenToIntervalAndForceClose');
+      if (!orderResponse?.orderId) return;
+      await this.delayService.delayForStopLoss();
+
+      await this.performClose(symbol, quantity, orderResponse, true);
+    });
+  }
+
+  private closing = false;
+  private async safeClose(
+    symbol: string,
+    quantity: number,
+    orderResponse: any,
+  ) {
+    if (this.closing) return;
+    this.closing = true;
     const stopLossOrderResponse = await this.placeStopLoss(
       orderResponse.orderId,
       symbol,
       'SELL',
       quantity,
-      // stopLossRequest.stop_price as unknown as number,
     );
-
     this.logger.log('Stop Loss Order Response:', stopLossOrderResponse);
   }
 }

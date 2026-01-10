@@ -39,14 +39,26 @@ export class DelayService {
       istNow.getSeconds() !== 59 &&
       istNow.getMilliseconds() >= millisecond
     ) {
-      this.logger.debug(
+      console.log(
         `Target time ${second}:${millisecond} already passed this minute`,
       );
       return;
     }
 
+    if (
+      isStopLossDelay &&
+      istNow.getSeconds() === 0 &&
+      istNow.getMilliseconds() < millisecond
+    ) {
+      const delay1 = millisecond - istNow.getMilliseconds();
+      await new Promise<void>((resolve) => setTimeout(resolve, delay1));
+      return;
+    } else if (isStopLossDelay && istNow.getSeconds() < 59) {
+      return;
+    }
+
     if (istNow.getTime() >= targetMs) {
-      this.logger.debug(
+      console.log(
         `Target time ${second}:${millisecond} already passed this minute`,
       );
       return;
@@ -55,7 +67,7 @@ export class DelayService {
     const delay = targetMs - istNow.getTime();
     const targetDate = new Date(targetMs);
 
-    this.logger.log(
+    console.log(
       `Waiting ${delay}ms until IST ${this.formatTimeWithMs(targetDate)}`,
     );
 
@@ -71,6 +83,6 @@ export class DelayService {
   }
 
   public async delayForStopLoss(): Promise<void> {
-    await this.waitUntilSameMinuteAtSecond(60, 200, true);
+    await this.waitUntilSameMinuteAtSecond(60, 250, true);
   }
 }
