@@ -23,6 +23,7 @@ export class BinanceService {
   private readonly LEVERAGE = 5;
   private readonly STOP_LOSS_PERCENTAGE = 0.002; // 0.3% stop loss
   private readonly LIMIT_LOSS_PERCENTAGE = 0.003; // 0.3% stop loss
+  private readonly RETRY_COUNT = 20;
   private logger = new Logger(BinanceService.name);
   private readonly STOP_LOSS_CACHE_KEY = 'binanceStopLossRequest';
   private readonly STOP_LOSS_EVENT = 'binanceStopLossRequestCached';
@@ -381,7 +382,7 @@ export class BinanceService {
       const url = `${this.baseUrl}/fapi/v1/order?${query}&signature=${signature}`;
       let res;
       let retryCount = 0;
-      while (retryCount < 8) {
+      while (retryCount < this.RETRY_COUNT) {
         try {
           res = await axios.post(url, null, {
             headers: { 'X-MBX-APIKEY': this.apiKey },
@@ -393,10 +394,10 @@ export class BinanceService {
             error.response.data,
           );
           retryCount++;
-          if (retryCount === 8) {
+          if (retryCount === this.RETRY_COUNT) {
             throw error;
           }
-          await new Promise((resolve) => setTimeout(resolve, 50));
+          await new Promise((resolve) => setTimeout(resolve, 30));
         }
       }
       return res.data;
@@ -503,6 +504,8 @@ export class BinanceService {
       'BUY',
       tickSize,
     );
+
+    await this.delayService.delayForStopLoss();
     //wait for 100 ms
     const stopLossOrderResponse = await this.putStopLoss(
       symbol,
