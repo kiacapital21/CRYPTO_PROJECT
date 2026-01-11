@@ -453,6 +453,7 @@ export class BinanceService {
       (f) => f.filterType === 'PRICE_FILTER',
     ).tickSize;
 
+    console.log('premiumIndex:', premiumIndex);
     let fundingTime = premiumIndex.nextFundingTime;
     fundingTime = new Date().getTime() + 10 * 1000;
     console.log('Step Size:', stepSize);
@@ -482,6 +483,8 @@ export class BinanceService {
 
     const orderResponse = await this.placeMarketOrder(symbol, 'BUY', quantity);
     if (!orderResponse?.orderId) return;
+    const premiumIndexAfterOrder = await this.getPremiumIndex(symbol);
+    this.logger.log('Premium Index After Order:', premiumIndexAfterOrder);
     const stopPrice = this.calculateStopLossPrice(
       orderResponse.avgPrice,
       'BUY',
