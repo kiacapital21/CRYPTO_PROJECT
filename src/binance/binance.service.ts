@@ -323,6 +323,31 @@ export class BinanceService {
     }
   }
 
+  // async putStopLoss(
+  //   symbol: string,
+  //   side: 'BUY' | 'SELL',
+  //   stopPrice: number,
+  //   quantity: number,
+  // ) {
+  //   try {
+  //     const timestamp = Date.now();
+  //     const query = `type=STOP_MARKET&stopPrice=${stopPrice}&workingType=MARK_PRICE&symbol=${symbol}&side=${side}&quantity=${quantity}&timestamp=${timestamp}`;
+  //     console.log('Placing stop loss with query:');
+  //     console.log(query);
+  //     const signature = crypto
+  //       .createHmac('sha256', this.apiSecret)
+  //       .update(query)
+  //       .digest('hex');
+  //     const url = `${this.baseUrl}/fapi/v1/order?${query}&signature=${signature}`;
+  //     const res = await axios.post(url, null, {
+  //       headers: { 'X-MBX-APIKEY': this.apiKey },
+  //     });
+  //     return res.data;
+  //   } catch (error) {
+  //     this.logger.error('Error placing stop loss order:', error.response.data);
+  //   }
+  // }
+
   async putStopLoss(
     symbol: string,
     side: 'BUY' | 'SELL',
@@ -331,7 +356,7 @@ export class BinanceService {
   ) {
     try {
       const timestamp = Date.now();
-      const query = `type=STOP_MARKET&stopPrice=${stopPrice}&workingType=MARK_PRICE&symbol=${symbol}&side=${side}&quantity=${quantity}&timestamp=${timestamp}`;
+      const query = `type=STOP_MARKET&stopPrice=${stopPrice}&workingType=MARK_PRICE&symbol=${symbol}&side=${side}&quantity=${quantity}&reduceOnly=true&timestamp=${timestamp}`;
       console.log('Placing stop loss with query:');
       console.log(query);
       const signature = crypto
@@ -339,12 +364,30 @@ export class BinanceService {
         .update(query)
         .digest('hex');
       const url = `${this.baseUrl}/fapi/v1/order?${query}&signature=${signature}`;
-      const res = await axios.post(url, null, {
-        headers: { 'X-MBX-APIKEY': this.apiKey },
-      });
+      let res;
+      let retryCount = 0;
+      while (retryCount < 3) {
+        try {
+          res = await axios.post(url, null, {
+            headers: { 'X-MBX-APIKEY': this.apiKey },
+          });
+          break;
+        } catch (error) {
+          this.logger.error(
+            'Error placing stop loss order:',
+            error.response.data,
+          );
+          retryCount++;
+          if (retryCount === 3) {
+            throw error;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+      }
       return res.data;
     } catch (error) {
       this.logger.error('Error placing stop loss order:', error.response.data);
+      throw error;
     }
   }
 
