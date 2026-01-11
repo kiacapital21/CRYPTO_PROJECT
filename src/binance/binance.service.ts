@@ -21,7 +21,8 @@ export class BinanceService {
   private readonly apiSecret: string;
   private readonly BALANCE_BUFFER = 0.9; // Extract constant
   private readonly LEVERAGE = 5;
-  private readonly STOP_LOSS_PERCENTAGE = 0.003; // 0.3% stop loss
+  private readonly STOP_LOSS_PERCENTAGE = 0.002; // 0.3% stop loss
+  private readonly LIMIT_LOSS_PERCENTAGE = 0.003; // 0.3% stop loss
   private logger = new Logger(BinanceService.name);
   private readonly STOP_LOSS_CACHE_KEY = 'binanceStopLossRequest';
   private readonly STOP_LOSS_EVENT = 'binanceStopLossRequestCached';
@@ -192,21 +193,34 @@ export class BinanceService {
     averageFillPrice: number,
     side: 'BUY' | 'SELL',
     tickSize: number,
-  ): number {
+  ): { stopPrice: number; limitPrice: number } {
     const stopPrice =
       side === 'SELL'
         ? averageFillPrice * (1 + this.STOP_LOSS_PERCENTAGE)
         : averageFillPrice * (1 - this.STOP_LOSS_PERCENTAGE);
+    const limitPrice =
+      side === 'SELL'
+        ? averageFillPrice * (1 + this.LIMIT_LOSS_PERCENTAGE)
+        : averageFillPrice * (1 - this.LIMIT_LOSS_PERCENTAGE);
 
-    const ticks =
+    const stopTicks =
       side === 'SELL'
         ? Math.ceil(stopPrice / tickSize)
         : Math.floor(stopPrice / tickSize);
 
-    const price = ticks * tickSize;
+    const limitTicks =
+      side === 'SELL'
+        ? Math.ceil(limitPrice / tickSize)
+        : Math.floor(limitPrice / tickSize);
+
+    const formattedStopPrice = stopTicks * tickSize;
+    const formattedLimitPrice = limitTicks * tickSize;
     const decimals = Math.round(Math.log10(1 / tickSize));
 
-    return parseFloat(price.toFixed(decimals));
+    return {
+      stopPrice: parseFloat(formattedStopPrice.toFixed(decimals)),
+      limitPrice: parseFloat(formattedLimitPrice.toFixed(decimals)),
+    };
   }
 
   // async cacheStopLossRequest(
@@ -352,11 +366,12 @@ export class BinanceService {
     symbol: string,
     side: 'BUY' | 'SELL',
     stopPrice: number,
+    limitPrice: number,
     quantity: number,
   ) {
     try {
       const timestamp = Date.now();
-      const query = `type=STOP_MARKET&stopPrice=${stopPrice}&workingType=MARK_PRICE&symbol=${symbol}&side=${side}&quantity=${quantity}&reduceOnly=true&timestamp=${timestamp}`;
+      const query = `type=STOP&stopPrice=${stopPrice}&price=${limitPrice}&workingType=MARK_PRICE&symbol=${symbol}&side=${side}&quantity=${quantity}&reduceOnly=true&timeInForce=GTC&timestamp=${timestamp}`;
       console.log('Placing stop loss with query:');
       console.log(query);
       const signature = crypto
@@ -366,7 +381,7 @@ export class BinanceService {
       const url = `${this.baseUrl}/fapi/v1/order?${query}&signature=${signature}`;
       let res;
       let retryCount = 0;
-      while (retryCount < 3) {
+      while (retryCount < 8) {
         try {
           res = await axios.post(url, null, {
             headers: { 'X-MBX-APIKEY': this.apiKey },
@@ -378,10 +393,10 @@ export class BinanceService {
             error.response.data,
           );
           retryCount++;
-          if (retryCount === 3) {
+          if (retryCount === 8) {
             throw error;
           }
-          await new Promise((resolve) => setTimeout(resolve, 1000));
+          await new Promise((resolve) => setTimeout(resolve, 50));
         }
       }
       return res.data;
@@ -483,19 +498,17 @@ export class BinanceService {
 
     const orderResponse = await this.placeMarketOrder(symbol, 'BUY', quantity);
     if (!orderResponse?.orderId) return;
-    const premiumIndexAfterOrder = await this.getPremiumIndex(symbol);
-    this.logger.log('Premium Index After Order:', premiumIndexAfterOrder);
-    const stopPrice = this.calculateStopLossPrice(
+    const { stopPrice, limitPrice } = this.calculateStopLossPrice(
       orderResponse.avgPrice,
       'BUY',
       tickSize,
     );
     //wait for 100 ms
-    await new Promise((resolve) => setTimeout(resolve, 50));
     const stopLossOrderResponse = await this.putStopLoss(
       symbol,
       'SELL',
       stopPrice,
+      limitPrice,
       quantity,
     );
     this.logger.log('Stop Loss Order Response:', stopLossOrderResponse);
