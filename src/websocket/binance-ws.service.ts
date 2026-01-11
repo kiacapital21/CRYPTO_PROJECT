@@ -108,7 +108,10 @@ export class BinanceWsService implements OnModuleInit, OnModuleDestroy {
    * BUY  → ask
    * SELL → bid
    */
-  getMaxQuantity(symbol: string, maxAgeMs = 200): number {
+  getMaxQuantity(
+    symbol: string,
+    maxAgeMs = 200,
+  ): { markPrice: number; quantity: number } {
     const cache = this.tickerCache.get(symbol);
 
     if (!cache) {
@@ -121,7 +124,7 @@ export class BinanceWsService implements OnModuleInit, OnModuleDestroy {
     // if (age > maxAgeMs) {
     //   throw new Error(`bookTicker stale (${age} ms old)`);
     // }
-    return cache.quantity;
+    return { markPrice: cache.ask, quantity: cache.quantity };
   }
 
   /**

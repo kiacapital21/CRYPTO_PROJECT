@@ -75,11 +75,11 @@ export class DelayService {
   }
 
   public async delayForTickerStream(): Promise<void> {
-    await this.waitUntilSameMinuteAtSecond(59, 780, false);
+    await this.waitUntilSameMinuteAtSecond(59, 730, false);
   }
 
   public async delay(): Promise<void> {
-    await this.waitUntilSameMinuteAtSecond(59, 800, false);
+    await this.waitUntilSameMinuteAtSecond(59, 750, false);
   }
 
   public async delayForStopLoss(): Promise<void> {

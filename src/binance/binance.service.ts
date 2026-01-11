@@ -12,6 +12,7 @@ import EventEmitter2 from 'eventemitter2';
 import { BinanceWsService } from 'src/websocket/binance-ws.service';
 import { FundingState } from 'src/websocket/funding-state';
 import { BinanceUserWsService } from 'src/websocket/binance-user-ws.service';
+import { parse } from 'path';
 
 @Injectable()
 export class BinanceService {
@@ -189,45 +190,52 @@ export class BinanceService {
 
   private calculateStopLossPrice(
     averageFillPrice: number,
-    side: string,
-  ): string {
-    const adjustment = averageFillPrice * this.STOP_LOSS_PERCENTAGE;
-    return (
-      side === 'sell'
-        ? averageFillPrice + adjustment
-        : averageFillPrice - adjustment
-    )
-      .toFixed(2)
-      .toString();
+    side: 'BUY' | 'SELL',
+    tickSize: number,
+  ): number {
+    const stopPrice =
+      side === 'SELL'
+        ? averageFillPrice * (1 + this.STOP_LOSS_PERCENTAGE)
+        : averageFillPrice * (1 - this.STOP_LOSS_PERCENTAGE);
+
+    const ticks =
+      side === 'SELL'
+        ? Math.ceil(stopPrice / tickSize)
+        : Math.floor(stopPrice / tickSize);
+
+    const price = ticks * tickSize;
+    const decimals = Math.round(Math.log10(1 / tickSize));
+
+    return parseFloat(price.toFixed(decimals));
   }
 
-  async cacheStopLossRequest(
-    side: string,
-    averageFillPrice: number,
-    maxSize: number,
-    symbol: string,
-  ) {
-    const stopLossPrice = this.calculateStopLossPrice(averageFillPrice, side);
-    this.logger.log('Calculated stop loss price:', stopLossPrice);
+  // async cacheStopLossRequest(
+  //   side: string,
+  //   averageFillPrice: number,
+  //   maxSize: number,
+  //   symbol: string,
+  // ) {
+  //   const stopLossPrice = this.calculateStopLossPrice(averageFillPrice, side);
+  //   this.logger.log('Calculated stop loss price:', stopLossPrice);
 
-    const stopLossRequest = {
-      symbol: symbol,
-      side: side === 'buy' ? 'sell' : 'buy',
-      size: maxSize,
-      stop_price: stopLossPrice,
-      type: 'market_order',
-      reduceOnly: true,
-    };
+  //   const stopLossRequest = {
+  //     symbol: symbol,
+  //     side: side === 'buy' ? 'sell' : 'buy',
+  //     size: maxSize,
+  //     stop_price: stopLossPrice,
+  //     type: 'market_order',
+  //     reduceOnly: true,
+  //   };
 
-    await this.cache.set(this.STOP_LOSS_CACHE_KEY, stopLossRequest);
-    this.logger.log('Stop loss order request cached');
+  //   await this.cache.set(this.STOP_LOSS_CACHE_KEY, stopLossRequest);
+  //   this.logger.log('Stop loss order request cached');
 
-    // // Emit event
-    this.eventEmitter.emit(this.STOP_LOSS_EVENT, {
-      symbol: symbol,
-    });
-    return stopLossRequest;
-  }
+  //   // // Emit event
+  //   this.eventEmitter.emit(this.STOP_LOSS_EVENT, {
+  //     symbol: symbol,
+  //   });
+  //   return stopLossRequest;
+  // }
 
   async getWalletBalance() {
     return this.authenticatedGet('/fapi/v3/balance');
@@ -315,6 +323,31 @@ export class BinanceService {
     }
   }
 
+  async putStopLoss(
+    symbol: string,
+    side: 'BUY' | 'SELL',
+    stopPrice: number,
+    quantity: number,
+  ) {
+    try {
+      const timestamp = Date.now();
+      const query = `type=STOP_MARKET&stopPrice=${stopPrice}&workingType=MARK_PRICE&symbol=${symbol}&side=${side}&quantity=${quantity}&timestamp=${timestamp}`;
+      console.log('Placing stop loss with query:');
+      console.log(query);
+      const signature = crypto
+        .createHmac('sha256', this.apiSecret)
+        .update(query)
+        .digest('hex');
+      const url = `${this.baseUrl}/fapi/v1/order?${query}&signature=${signature}`;
+      const res = await axios.post(url, null, {
+        headers: { 'X-MBX-APIKEY': this.apiKey },
+      });
+      return res.data;
+    } catch (error) {
+      this.logger.error('Error placing stop loss order:', error.response.data);
+    }
+  }
+
   async setCrypto(symbol: string) {
     this.logger.log(`Setting binance trading crypto to ${symbol}`);
     await this.cache.set('binanceTradingCrypto', symbol, 1 * 60 * 60 * 1000);
@@ -366,10 +399,16 @@ export class BinanceService {
 
     const availableBalance = this.getUSDTBalance(walletBalance);
     console.log('Available Balance:', availableBalance);
+    const exchangeSymbol = exchangeInfo.symbols.find(
+      (s) => s.symbol === symbol,
+    );
+    const stepSize = exchangeSymbol.filters.find(
+      (f) => f.filterType === 'LOT_SIZE',
+    ).stepSize;
 
-    const stepSize = exchangeInfo.symbols
-      .find((s) => s.symbol === symbol)
-      .filters.find((f) => f.filterType === 'LOT_SIZE').stepSize;
+    const tickSize = exchangeSymbol.filters.find(
+      (f) => f.filterType === 'PRICE_FILTER',
+    ).tickSize;
 
     let fundingTime = premiumIndex.nextFundingTime;
     fundingTime = new Date().getTime() + 10 * 1000;
@@ -383,9 +422,12 @@ export class BinanceService {
       leverageInfo.leverage,
       stepSize,
     );
-    await this.binanceUserWsService.connect();
+    // await this.binanceUserWsService.connect();
     await this.delayService.delayForTickerStream();
-    const quantity = this.binanceWsService.getMaxQuantity(symbol, 200);
+    const { markPrice, quantity } = this.binanceWsService.getMaxQuantity(
+      symbol,
+      200,
+    );
     this.logger.log('Calculated order quantity:', quantity);
     await this.binanceWsService.terminateTickerStream();
 
@@ -397,7 +439,34 @@ export class BinanceService {
 
     const orderResponse = await this.placeMarketOrder(symbol, 'BUY', quantity);
     if (!orderResponse?.orderId) return;
-    this.listenToFundFee(symbol, quantity, orderResponse);
+    const stopPrice = this.calculateStopLossPrice(
+      orderResponse.avgPrice,
+      'BUY',
+      tickSize,
+    );
+    //wait for 100 ms
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const stopLossOrderResponse = await this.putStopLoss(
+      symbol,
+      'SELL',
+      stopPrice,
+      quantity,
+    );
+    this.logger.log('Stop Loss Order Response:', stopLossOrderResponse);
+    const stopOrderId = stopLossOrderResponse?.orderId;
+    if (!stopOrderId) return;
+    // Cancel after 30 seconds if not triggered
+    // setTimeout(async () => {
+    //   try {
+    //     const cancelResp = await this.cancelStopOrder(symbol, stopOrderId);
+    //     console.log('STOP_MARKET canceled:', cancelResp);
+    //   } catch (err) {
+    //     console.error(
+    //       'Failed to cancel STOP_MARKET:',
+    //       err.response?.data || err,
+    //     );
+    //   }
+    // }, 3 * 1000);
   }
 
   private async performClose(
@@ -430,9 +499,9 @@ export class BinanceService {
     this.eventEmitter.on('placedOrder', async (orderResponse) => {
       console.log('Placed Order Response inside listenToIntervalAndForceClose');
       if (!orderResponse?.orderId) return;
-      await this.delayService.delayForStopLoss();
+      // await this.delayService.delayForStopLoss();
 
-      await this.performClose(symbol, quantity, orderResponse, true);
+      // await this.performClose(symbol, quantity, orderResponse, true);
     });
   }
 
@@ -451,5 +520,21 @@ export class BinanceService {
       quantity,
     );
     this.logger.log('Stop Loss Order Response:', stopLossOrderResponse);
+  }
+
+  async cancelStopOrder(symbol: string, orderId: number) {
+    const timestamp = Date.now();
+    const query = `symbol=${symbol}&orderId=${orderId}&timestamp=${timestamp}`;
+    const signature = crypto
+      .createHmac('sha256', this.apiSecret)
+      .update(query)
+      .digest('hex');
+
+    const resp = await axios.delete(
+      `https://fapi.binance.com/fapi/v1/order?${query}&signature=${signature}`,
+      { headers: { 'X-MBX-APIKEY': this.apiKey } },
+    );
+
+    return resp.data;
   }
 }
