@@ -18,7 +18,7 @@ export class BinanceService {
   private readonly baseUrl: string;
   private readonly apiKey: string;
   private readonly apiSecret: string;
-  private readonly BALANCE_BUFFER = 0.9; // Extract constant
+  private readonly BALANCE_BUFFER = 0.25; // Extract constant
   private readonly LEVERAGE = 5;
   private readonly STOP_LOSS_PERCENTAGE = 0.003; // 0.3% stop loss
   private logger = new Logger(BinanceService.name);

@@ -98,7 +98,7 @@ export class BinanceWsService implements OnModuleInit, OnModuleDestroy {
     markPrice: number, // current symbol price
     stepSize: number, // from exchangeInfo filters
   ) {
-    const effectiveBalance = availableBalance * 0.95;
+    const effectiveBalance = availableBalance * 0.25;
     const rawQty = (effectiveBalance * leverage) / markPrice;
     return parseFloat((Math.floor(rawQty / stepSize) * stepSize).toFixed(1));
   }
