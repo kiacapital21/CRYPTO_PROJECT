@@ -351,6 +351,10 @@ export class BinanceService {
     if (cacheCrypto) {
       symbol = cacheCrypto;
     }
+    if (!symbol) {
+      this.logger.warn('No symbol specified for trading. Aborting strategy.');
+      return;
+    }
     this.logger.log(
       'Running Binance local trading strategy... symbol:',
       symbol,
