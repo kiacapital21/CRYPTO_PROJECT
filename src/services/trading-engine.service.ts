@@ -75,6 +75,10 @@ export class TradingEngineService {
     if (cacheCrypto) {
       symbol = cacheCrypto;
     }
+    if (!symbol) {
+      this.logger.warn('No symbol specified for trading. Aborting strategy.');
+      return;
+    }
     await this.orders.buy(symbol);
     // await this.orders.sell(symbol);
     this.logger.log('Ending local trading strategy...');
