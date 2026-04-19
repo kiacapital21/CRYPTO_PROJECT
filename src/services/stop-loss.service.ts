@@ -65,6 +65,7 @@ export class StopLossService {
     }
 
     this.logger.log('Placing stop loss order...');
+    this.logger.log('Stop loss request data:', stopLossReq);
     const stopLossOrderResponse =
       await this.deltaExchangeService.placeOrder(stopLossReq);
 

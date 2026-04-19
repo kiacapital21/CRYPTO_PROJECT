@@ -201,6 +201,7 @@ export class DeltaExchangeService {
 
   async placeOrder(orderData) {
     try {
+      this.logger.log('Placing order with data:', orderData);
       return await this.authenticatedPost('/v2/orders', orderData);
     } catch (error) {
       this.logger.log(error.response?.data?.error?.code || error.message);
